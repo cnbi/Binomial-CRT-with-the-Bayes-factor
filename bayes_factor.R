@@ -30,8 +30,8 @@ calc_aafbf <- function(type, estimates, sigma, b, n_eff) {
         comp1 <- 1 - pnorm(0, mean = 0, sd = sqrt(sigma[[2]] / b_calc))
         
         # Fit
-        fit0 <- dnorm(0, mean = estimates[[1]], sd = sqrt(sigma[[1]])) # overlap of parameter under H0 and posterior -> density of the posterior at focal point 0
-        fit1 <- 1 - pnorm(0, mean = estimates[[2]], sd = sqrt(sigma[[2]])) # the fit is equal to 1 - the fit of the complement
+        fit0 <- dnorm(0, mean = estimates[["control"]], sd = sqrt(sigma$control)) # overlap of parameter under H0 and posterior -> density of the posterior at focal point 0
+        fit1 <- 1 - pnorm(0, mean = estimates[["intervention"]], sd = sqrt(sigma$intervention)) # the fit is equal to 1 - the fit of the complement
         
         # Calculation of BFs
         AAFBF0u <- fit0 / comp0                    # AAFBF of H0 vs Hu
@@ -44,6 +44,7 @@ calc_aafbf <- function(type, estimates, sigma, b, n_eff) {
         pmp1 <- 1 - pmp0
         output <- list(bf.10 = AAFBF10, bf.01 = AAFBF01, pmp0 = pmp0, pmp1 = pmp1)
     }
+    browser()
     #Output
     return(output)
 }

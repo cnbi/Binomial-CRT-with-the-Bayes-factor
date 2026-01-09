@@ -2,7 +2,6 @@
 
 # Model fitting
 fit_glmer <- function(x) {
-    browser()
     suppressMessages({
         fitted_model <- glmer(resp ~ intervention + control - 1 + (1 | id), data = x, 
                               family = binomial)})
@@ -10,8 +9,8 @@ fit_glmer <- function(x) {
 }
 
 # Obtain the variance covariance matrix for fixed effects
-varcov <- function(output.glmer, number) {
-    varcov <- matrix(vcov(output.glmer)[number], nrow = 1, ncol = 1)
+varcov <- function(output.glmer, name) {
+    varcov <- matrix(vcov(output.glmer)[name, name], nrow = 1, ncol = 1)
     return(varcov)
 }
 
@@ -28,9 +27,12 @@ marker_func <- function(output.glmer) {
 }
 
 # Extract results
-extract_res <- function(x, number) {
-    results <- x[[number]]
-    return(results)
+extract_res_bain <- function(bain_object, element, number) {
+    result <- bain_object$fit[[element]][number]
+    if (is.null(result)) {
+        result <- NaN
+    }
+    return(result)
 }
 
 # Rounding half away from zero
@@ -51,7 +53,11 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
                              b, prop_BF01, prop_BF10, results_H0, results_H1,
                              data_H0, data_H1, final_SSD){
     if (!condition_met) {
-        print(c("high:", high, "n2:", n2, "n1:", n1, "low:", low))
+        print(c("Using cluster size:", n1,
+                "and number of clusters:", n2,
+                "prop_BF01: ", prop_BF01, "prop_BF10: ", prop_BF10,
+                "low:", low, "high:", high, "b:", b,  "current_eta:", current_eta,
+                "previous_eta:", previous_eta))
         message("Increasing sample size")
         if (fixed == "n1") {
             if (n2 == max)    { # If the sample size reaches the maximum
@@ -76,7 +82,8 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
                             previous_eta = current_eta,
                             previous_high = previous_high,
                             b = b,
-                            final_SSD))
+                            final_SSD = final_SSD
+                            ))
             } else {
                 # Increase the number of clusters since eta is too small
                 low <- n2                         #lower bound
@@ -117,12 +124,14 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
                 previous_eta <- 0
                 previous_high <- 0
                 high <- max
-                return(list(low = min_sample,
-                            high = max,
+                return(list(low = low,
+                            high = high,
                             n1 = n1,
                             n2 = n2,
+                            previous_eta = current_eta,
+                            previous_high = previous_high,
                             b = b,
-                            final_SSD))
+                            final_SSD = final_SSD))
             } else {
                 # Increase the cluster sizes since eta is too small
                 low <- n1                        #lower bound
@@ -149,7 +158,6 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
             }
         }
     } else if (condition_met) {
-        previous_high <- high
         print(c("previous:", previous_eta))
         previous_high <- high
         SSD_object <- list("n1" = n1,
@@ -170,13 +178,14 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
             # there is no change in eta and the lower bound is close to the middle point
             if ((current_eta - eta < 0.1 && n2 - low == 2) ||
                 (previous_eta == current_eta && n2 - low == 2)) {
+                final_SSD[[b]] <- SSD_object
                 b <- b + 1
                 low <- min_sample
                 high <- max
-                final_SSD[[b]] <- SSD_object
+                
                 return(list(
                     low = low,
-                    max = max,
+                    high = max,
                     n1 = n1,
                     n2 = n2,
                     b = b,
@@ -208,8 +217,11 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
             if ((current_eta - eta < 0.1 && n1 - low == 1) ||
                 (current_eta == previous_eta && n1 - low == 1) ||
                 (current_eta == previous_eta && low + n1 == high * 2)) {
-                b <- b + 1
                 final_SSD[[b]] <- SSD_object
+                b <- b + 1
+                low <- min_sample
+                high <- max
+                
                 return(list(low = min_sample,
                             high = max,
                             n1 = n1,
