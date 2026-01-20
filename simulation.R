@@ -7,6 +7,7 @@ library(lme4)
 library(pbapply)
 library(parallel)
 library(tidyverse)
+library(nanoparquet)
 
 # Functions
 source("ssd_null.R")
@@ -39,6 +40,7 @@ nrow_designN2 <- nrow(design_matrixN2)
 colnames(design_matrixN2) <- c("var_u0", "p_int", "BF_threshold", "eta", "n1", "fixed")
 design_matrixN2 <- mutate(design_matrixN2, seed = as.integer(sample(2^32 /
                                                                         2, n())))
+write_parquet(design_matrixN2, "design_matrix_findN2_set1")
 
 run_null_wrapper <- function(Row) {
     run_null(
@@ -115,6 +117,7 @@ collect_times(
 #######################
 ## Find cluster size ##
 #######################
+results_folder
 ### Design matrix---
 n2 <- c(30, 60, 90)
 design_matrixN1 <- expand.grid(var_u0, eff_size_prob, BF_thres, eta, n2, fixed <- "n2")
@@ -122,42 +125,57 @@ colnames(design_matrixN1) <- c("var_u0", "eff_size", "BF_threshold", "eta", "n2"
 nrow_designN1 <- nrow(design_matrixN1)
 design_matrixN1 <- mutate(design_matrixN1, seed = as.integer(sample(2^32 /
                                                                         2, n())))
-
+write_parquet(design_matrixN1, "design_matrix_findN1_set1")
 ### Running the simulation ---
 clusters <- makeForkCluster(detectCores() * 0.75) #For Linux
-clusters <- makeCluster(detectCores() * 0.75) #For Windows
-clusterEvalQ(clusters, {
-    library(tidyverse)
-})
-clusterExport(
-    clusters,
-    c(
-        "design_matrixN1",
-        "ndatasets",
-        "b",
-        "Max",
-        "batch_size",
-        "results_folder",
-        "binary_search_eq",
-        "collect_results",
-        "collect_times",
-        "extract_res",
-        "filter_underpowered",
-        "final_binary_search",
-        "fit_glmer",
-        "get_variance",
-        "marker_func",
-        "print_results",
-        "reached_condition",
-        "round2",
-        "run_null",
-        "run_simulation_inf",
-        "SSD_crt_null_binary",
-        "varcov"
+# clusters <- makeCluster(detectCores() * 0.75) #For Windows
+# clusterEvalQ(clusters, {
+#     library(tidyverse)
+# })
+# clusterExport(
+#     clusters,
+#     c(
+#         "design_matrixN1",
+#         "ndatasets",
+#         "b",
+#         "Max",
+#         "batch_size",
+#         "results_folder",
+#         "binary_search_eq",
+#         "collect_results",
+#         "collect_times",
+#         "extract_res",
+#         "filter_underpowered",
+#         "final_binary_search",
+#         "fit_glmer",
+#         "get_variance",
+#         "marker_func",
+#         "print_results",
+#         "reached_condition",
+#         "round2",
+#         "run_null",
+#         "run_simulation_inf",
+#         "SSD_crt_null_binary",
+#         "varcov"
+#     )
+# )
+run_null_wrapper <- function(Row) {
+    run_null(
+        Row = Row,
+        design_matrix = design_matrixN1,
+        ndatasets = ndatasets,
+        Max = Max,
+        batch_size = batch_size,
+        results_folder = results_folder,
+        b = b_fract
     )
-)
+}
 
-output <- pbapply(1:nrow_designN1, run_null, cl = clusters)
+output <- parallel::parLapply(
+    cl = clusters,
+    X = 1:nrow_designN1,
+    fun = run_null_wrapper
+)
 stopCluster(clusters)
 
 ### Collect results -----
