@@ -127,7 +127,7 @@ design_matrixN1 <- mutate(design_matrixN1, seed = as.integer(sample(2^32 /
                                                                         2, n())))
 write_parquet(design_matrixN1, "design_matrix_findN1_set1")
 ### Running the simulation ---
-clusters <- makeForkCluster(detectCores() * 0.75) #For Linux
+
 # clusters <- makeCluster(detectCores() * 0.75) #For Windows
 # clusterEvalQ(clusters, {
 #     library(tidyverse)
@@ -170,7 +170,7 @@ run_null_wrapper <- function(Row) {
         b = b_fract
     )
 }
-
+clusters <- makeForkCluster(detectCores() * 0.75) #For Linux
 output <- parallel::parLapply(
     cl = clusters,
     X = 1:nrow_designN1,
