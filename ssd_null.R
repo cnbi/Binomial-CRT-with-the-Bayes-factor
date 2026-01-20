@@ -9,12 +9,12 @@ SSD_crt_null_binary <- function(p_intv, p_ctrl = 0, n1 = 15, n2 = 30, ndatasets 
     library(lme4)
     library(dplyr)
     library(stargazer)
+    library(bain)
     
     #Functions ----------------
     source("data_generation.R")
     source("helper_functions.R")
     source("print_results.R")
-    source("bayes_factor.R")
     
     # Starting values ----------------------------------------------------------
     conditions_met <- FALSE          #Indication we met the power criteria.
@@ -81,13 +81,13 @@ SSD_crt_null_binary <- function(p_intv, p_ctrl = 0, n1 = 15, n2 = 30, ndatasets 
             n_eff_H1_list <- lapply(n_eff_H1, function(x) c(x, x))
             output_bain_H1 <- Map(bain, x = data_H1$estimates, hypothesis = "intervention=control; intervention>control", list(b), 
                                   n = n_eff_H1_list, Sigma = data_H1$cov_list, group_parameters = 1)
-                
+            
             
             n_eff_H0 <- ((n1 * n2) / (1 + (n1 - 1) * data_H0$rho_data)) / 2
             n_eff_H0_list <- lapply(n_eff_H0, function(x) c(x, x))
             output_bain_H0 <- Map(bain, x = data_H0$estimates, hypothesis = "intervention=control; intervention>control", list(b), 
                                   n = n_eff_H0_list, Sigma = data_H0$cov_list, group_parameters = 1)
-           
+            
             # Results ---------------------------------------------------------------------
             #browser()
             results_H1[, 1] <- sapply(output_bain_H1, extract_res_bain, "BF.u", 1) #H0vsHu

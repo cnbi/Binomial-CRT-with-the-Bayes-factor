@@ -4,79 +4,79 @@
 
 # Run the simulation
 ## Function to run the simulation for hypotheses set 2 -----
-run_simulation_inf <- function(Row,
-                               design_matrix,
-                               ndatasets,
-                               Max,
-                               batch_size,
-                               results_folder) {
-    message("Starting simulation for row:", Row)
-    Fixed <- design_matrix[Row, 6]
-    Fixed <- toupper(Fixed)
-    
-    if (Fixed == "N1") {
-        finding <- "N2"
-    } else if (Fixed == "N2") {
-        finding <- "N1"
-    }
-    
-    # Start time
-    start_time <- Sys.time()
-    
-    # Actual simulation
-    if (Fixed == "N1") {
-        ssd_results <- SSD_crt_inform(
-            eff_size = design_matrix[Row, 2],
-            n1 = design_matrix[Row, 5],
-            ndatasets = ndatasets,
-            rho = design_matrix[Row, 1],
-            BF_thresh = design_matrix[Row, 3],
-            eta =  design_matrix[Row, 4],
-            fixed = as.character(design_matrix[Row, 6]),
-            max = Max,
-            batch_size = batch_size
-        )
-    } else if (Fixed == "N2") {
-        ssd_results <- SSD_crt_inform(
-            eff_size = design_matrix[Row, 2],
-            n2 = design_matrix[Row, 5],
-            ndatasets = ndatasets,
-            rho = design_matrix[Row, 1],
-            BF_thresh = design_matrix[Row, 3],
-            eta =  design_matrix[Row, 4],
-            fixed = as.character(design_matrix[Row, 6]),
-            max = Max,
-            batch_size = 1000
-        )
-    }
-    
-    # End time and save results
-    end_time <- Sys.time()
-    file_name <- file.path(results_folder,
-                           paste0("Results", finding, "Row", Row, ".RDS"))
-    saveRDS(ssd_results, file = file_name)
-    
-    # Save running time
-    running_time <- as.numeric(difftime(end_time, start_time, units = "mins"))
-    time_name <- file.path(results_folder, paste0("time", finding, "Row", Row, ".RDS"))
-    saveRDS(running_time, file = time_name)
-    
-    message("Finished row: ", Row)
-    
-    # Clean up memory
-    rm(ssd_results)
-    NULL
-    gc()
-}
+# run_simulation_inf <- function(Row,
+#                                design_matrix,
+#                                ndatasets,
+#                                Max,
+#                                batch_size,
+#                                results_folder) {
+#     message("Starting simulation for row:", Row)
+#     Fixed <- design_matrix[Row, 6]
+#     Fixed <- toupper(Fixed)
+#     
+#     if (Fixed == "N1") {
+#         finding <- "N2"
+#     } else if (Fixed == "N2") {
+#         finding <- "N1"
+#     }
+#     
+#     # Start time
+#     start_time <- Sys.time()
+#     
+#     # Actual simulation
+#     if (Fixed == "N1") {
+#         ssd_results <- SSD_crt_inform(
+#             eff_size = design_matrix[Row, 2],
+#             n1 = design_matrix[Row, 5],
+#             ndatasets = ndatasets,
+#             rho = design_matrix[Row, 1],
+#             BF_thresh = design_matrix[Row, 3],
+#             eta =  design_matrix[Row, 4],
+#             fixed = as.character(design_matrix[Row, 6]),
+#             max = Max,
+#             batch_size = batch_size
+#         )
+#     } else if (Fixed == "N2") {
+#         ssd_results <- SSD_crt_inform(
+#             eff_size = design_matrix[Row, 2],
+#             n2 = design_matrix[Row, 5],
+#             ndatasets = ndatasets,
+#             rho = design_matrix[Row, 1],
+#             BF_thresh = design_matrix[Row, 3],
+#             eta =  design_matrix[Row, 4],
+#             fixed = as.character(design_matrix[Row, 6]),
+#             max = Max,
+#             batch_size = 1000
+#         )
+#     }
+#     
+#     # End time and save results
+#     end_time <- Sys.time()
+#     file_name <- file.path(results_folder,
+#                            paste0("Results", finding, "Row", Row, ".RDS"))
+#     saveRDS(ssd_results, file = file_name)
+#     
+#     # Save running time
+#     running_time <- as.numeric(difftime(end_time, start_time, units = "mins"))
+#     time_name <- file.path(results_folder, paste0("time", finding, "Row", Row, ".RDS"))
+#     saveRDS(running_time, file = time_name)
+#     
+#     message("Finished row: ", Row)
+#     
+#     # Clean up memory
+#     rm(ssd_results)
+#     NULL
+#     gc()
+# }
 
 # Function to run the simulation for hypotheses set 1 ----
 run_null <- function(Row,
-                                design_matrix,
-                                ndatasets,
-                                Max,
-                                batch_size,
-                                results_folder,
-                                b) {
+                     design_matrix,
+                     ndatasets,
+                     Max,
+                     batch_size,
+                     results_folder,
+                     b) {
     Fixed <- design_matrix[Row, "fixed"]
     Fixed <- toupper(Fixed)
     
@@ -93,7 +93,7 @@ run_null <- function(Row,
     if (Fixed == "N1") {
         ssd_results <- SSD_crt_null_binary(
             p_intv = design_matrix[Row, 2],
-            p_ctrl = 0,
+            p_ctrl = 0.5,
             n1 = design_matrix[Row, 5],
             ndatasets = ndatasets,
             var_u0 = design_matrix[Row, 1],
@@ -110,7 +110,7 @@ run_null <- function(Row,
     } else if (Fixed == "N2") {
         ssd_results <- SSD_crt_null_binary(
             p_intv = design_matrix[Row, 2],
-            p_ctrl = 0,
+            p_ctrl = 0.5,
             n1 = design_matrix[Row, 5],
             ndatasets = ndatasets,
             var_u0 = design_matrix[Row, 1],
@@ -142,6 +142,9 @@ run_null <- function(Row,
     NULL
     gc()
 }
+
+# Wrapper ----------------
+
 
 # Check whether all conditions reached the power criterion -----
 # Returns matrix with underpowered conditions and its results
