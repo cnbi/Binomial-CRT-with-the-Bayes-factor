@@ -56,6 +56,7 @@ run_null_wrapper <- function(Row) {
 
 ### Running the simulation ---
 clusters <- makeForkCluster(detectCores() * 0.75)
+
 #clusters <- makeCluster(detectCores() * 0.75) #For Windows
 clusterEvalQ(clusters, {
     library(tidyverse)
@@ -127,7 +128,8 @@ design_matrixN1 <- mutate(design_matrixN1, seed = as.integer(sample(2^32 /
                                                                         2, n())))
 write_parquet(design_matrixN1, "design_matrix_findN1_set1")
 ### Running the simulation ---
-
+design_matrixN1 <- as.data.frame(read_parquet("design_matrix_findN1_set1"))
+nrow_designN1 <- nrow(design_matrixN1)
 # clusters <- makeCluster(detectCores() * 0.75) #For Windows
 # clusterEvalQ(clusters, {
 #     library(tidyverse)
