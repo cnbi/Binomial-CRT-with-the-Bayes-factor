@@ -49,7 +49,7 @@ round2 <- function(number, decimals = 0) {
 
 # Binary Search Algorithm with equality constraint-----------------------------
 binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
-                                current_eta, previous_eta, previous_high, min_sample,
+                             current_eta, previous_eta, previous_high, min_sample,
                              b, prop_BF01, prop_BF10, results_H0, results_H1,
                              data_H0, data_H1, final_SSD){
     if (!condition_met) {
@@ -83,7 +83,7 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
                             previous_high = previous_high,
                             b = b,
                             final_SSD = final_SSD
-                            ))
+                ))
             } else {
                 # Increase the number of clusters since eta is too small
                 low <- n2                         #lower bound
@@ -170,9 +170,9 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
                            "singularity" = cbind(H0 = data_H0$singularity,
                                                  H1 = data_H1$singularity))
         print(c("Using cluster size:", n1,
-                        "and number of clusters:", n2,
-                        "prop_BF01: ", prop_BF01, "prop_BF10: ", prop_BF10,
-                        "low:", low, "high:", high, "b:", b))
+                "and number of clusters:", n2,
+                "prop_BF01: ", prop_BF01, "prop_BF10: ", prop_BF10,
+                "low:", low, "high:", high, "b:", b))
         if (fixed == "n1") {
             # Eta is close enough to the desired eta or
             # there is no change in eta and the lower bound is close to the middle point
@@ -191,6 +191,17 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
                     b = b,
                     final_SSD = final_SSD))
                 
+            } else if (low + n2 == high * 2) {
+                # Adjust higher bound when there is a ceiling effect
+                low <- n2                         #lower bound
+                high <- n2 * 2                       #higher bound
+                n2 <- round2((low + high) / 2)     #point in the middle
+                return(list(low = low,
+                            high = high,
+                            n1 = n1,
+                            n2 = n2,
+                            b = b,
+                            previous_eta = current_eta))  
             } else {
                 # Decreasing to find the ultimate number of clusters
                 message("Lowering number of clusters")
@@ -229,6 +240,17 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
                             b = b,
                             final_SSD = final_SSD))
                 
+            } else if (low + n1 == high * 2) {
+                # Adjust higher bound when there is a ceiling effect
+                low <- n1                         #lower bound
+                high <- n1*2                       #higher bound
+                n1 <- round2((low + high) / 2)     #point in the middle
+                return(list(low = low,
+                            high = high,
+                            n1 = n1,
+                            n2 = n2,
+                            b = b,
+                            previous_eta = current_eta))  
             } else {
                 message("Lowering cluster size")
                 # Decreasing the cluster size to find the ultimate sample size
