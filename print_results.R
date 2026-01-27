@@ -29,5 +29,11 @@ print_results <- function(list_results, type_hyp, b) {
         stargazer::stargazer(results_matrix, type = "text", summary = FALSE)
         cat("n1: Cluster sizes", "\n")
         cat("n2: Number of clusters", "\n")
-        }
+    } else if (type_hyp == "ineq"){
+        cat("Hypotheses:", "\n")
+        cat("    H1: Intervention > Control", "\n")
+        cat("    H2: not H1", "\n")
+        cat("Using cluster size = ", list_results$n1, " and number of clusters = ", list_results$n2, "\n")
+        cat("P (BF.12 > ", list_results[[(n_object - 1)]], " | H1) = ", list_results$Proportion.BF12, "\n")
+    }
 }

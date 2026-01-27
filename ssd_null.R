@@ -2,7 +2,7 @@
 
 
 
-SSD_crt_null_binary <- function(p_intv, p_ctrl = 0, n1 = 15, n2 = 30, ndatasets = 1000, 
+SSD_crt_null_binary <- function(p_intv, p_ctrl, n1 = 15, n2 = 30, ndatasets = 1000, 
                                 var_u0, BF_thresh1, BF_thresh0, eta1 = 0.8, eta0 = 0.8,
                                 fixed = "n2", b_fract = 3, max = 1000, batch_size = 100, seed) {
     # Libraries ----
