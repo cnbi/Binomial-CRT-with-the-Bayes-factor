@@ -9,7 +9,6 @@ SSD_crt_inf_binary <- function(p_intv,
                                BF_thresh1,
                                eta1 = 0.8,
                                fixed = "n2",
-                               b_fract = 3,
                                max = 1000,
                                batch_size = 100,
                                seed) {
@@ -27,7 +26,7 @@ SSD_crt_inf_binary <- function(p_intv,
     # Starting values ----------------------------------------------------------
     conditions_met <- FALSE          #Indication we met the power criteria.
     ultimate_sample_sizes <- FALSE  #Indication that we found the required sample size.
-    results_H1 <- matrix(NA, nrow = ndatasets, ncol = 5)
+    results_H1 <- matrix(NA, nrow = ndatasets, ncol = 4)
 
     # Warnings
     if (is.numeric(
@@ -36,11 +35,8 @@ SSD_crt_inf_binary <- function(p_intv,
             n2,
             ndatasets,
             BF_thresh1,
-            BF_thresh2,
             var_u0,
             eta1,
-            eta2,
-            b_fract,
             max,
             batch_size
         )
@@ -52,8 +48,10 @@ SSD_crt_inf_binary <- function(p_intv,
         stop("Fixed can only be a character indicating n1 or n2.")
     if (fixed %in% c("n1", "n2") == FALSE)
         stop("Fixed can only be character indicating n1 or n2.")
-    if ((b_fract == round(b_fract)) == FALSE)
-        stop("The fraction of information (b) must be an integer")
+    if (p_ctrl > 1 | p_intv > 1)
+        stop("Proportion with the outcome of interest cannot be larger than 1")
+    if (p_ctrl == 0 )
+        stop("Proportion with the outcome of interest in control condition cannot be equal to 0")
     
     # Binary search start ------------------------------------------------------
     if (fixed == "n1") {
@@ -69,7 +67,6 @@ SSD_crt_inf_binary <- function(p_intv,
     hypothesis1 <- "Intervention>Control"
     hypothesis2 <- "Intervention<Control"
     final_SSD <- vector(mode = "list", length = b_fract)
-    type <- "Inequalities"
     previous_high <- 0
     previous_eta <- 0
     current_eta <- 0
@@ -85,8 +82,8 @@ SSD_crt_inf_binary <- function(p_intv,
         
         #Approximated adjusted fractional Bayes factors------------------------------
         n_eff_H1 <- ((n1 * n2) / (1 + (n1 - 1) * data_H1$rho_data)) / 2
-        n_eff_H1_list <- lapply(n_eff_H1, function(x)
-            c(x, x))
+        n_eff_H1_list <- lapply(n_eff_H1, function(x) c(x, x))
+
         output_bain_H1 <- Map(
             bain,
             x = data_H1$estimates,
@@ -98,17 +95,16 @@ SSD_crt_inf_binary <- function(p_intv,
         
         # Results ---------------------------------------------------------------------
         #browser()
-        results_H1[, 1] <- sapply(output_bain_H1, extract_res_bain, "BF.u", 1) #H0vsHu
-        results_H1[, 2] <- sapply(output_bain_H1, extract_res_bain, "PMPc", 1) #PMP0c
-        results_H1[, 3] <- sapply(output_bain_H1, extract_res_bain, "BF.u", 2) #H1vsHu
-        results_H1[, 4] <- sapply(output_bain_H1, extract_res_bain, "PMPc", 2) #PMP1c
-        results_H1[, 5] <- results_H1[, 3] / results_H1[, 1]
-        colnames(results_H1) <- c("BF.2u", "PMP.2", "BF.1u", "PMP.1", "BF.12")
+        results_H1[, 1] <- sapply(output_bain_H1, extract_res_bain, "BF.u", 1) #H1vsHu
+        results_H1[, 2] <- sapply(output_bain_H1, extract_res_bain, "PMPc", 1) #PMP1
+        results_H1[, 3] <- sapply(output_bain_H1, extract_res_bain, "BF.c", 1) #H1vs2
+        results_H1[, 4] <- sapply(output_bain_H1, extract_res_bain, "PMPc", 3) #PMP2
+        colnames(results_H1) <- c("BF.1u", "PMP.1", "BF.12", "PMP.2")
         
         #Evaluation of condition -------------------------------------------
         # Proportion
         prop_BF12 <- length(which(results_H1[, "BF.12"] > BF_thresh1)) / ndatasets
-        
+
         # Evaluation
         ifelse(prop_BF12 > eta1 |
                         prop_BF12 == eta1,
@@ -137,7 +133,7 @@ SSD_crt_inf_binary <- function(p_intv,
             data_H1 = data_H1
         )
         list2env(updated_sample, environment())
-        rm(data_H0, data_H1)
+        rm(data_H1)
     } # Finishes final sample size loop
     # Final output
     final_SSD[[b_fract + 1]] <- BF_thresh1

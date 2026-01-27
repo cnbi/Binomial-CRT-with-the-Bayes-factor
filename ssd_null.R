@@ -41,6 +41,10 @@ SSD_crt_null_binary <- function(p_intv, p_ctrl, n1 = 15, n2 = 30, ndatasets = 10
     if (is.character(fixed) == FALSE) stop("Fixed can only be a character indicating n1 or n2.")
     if (fixed %in% c("n1", "n2") == FALSE) stop("Fixed can only be character indicating n1 or n2.")
     if ((b_fract == round(b_fract)) == FALSE) stop("The fraction of information (b) must be an integer")
+    if (p_ctrl > 1 | p_intv > 1)
+        stop("Proportion with the outcome of interest cannot be larger than 1")
+    if (p_ctrl == 0 )
+        stop("Proportion with the outcome of interest in control condition cannot be equal to 0")
     
     # Binary search start ------------------------------------------------------
     if (fixed == "n1") {
