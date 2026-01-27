@@ -47,6 +47,22 @@ SSD_crt_null_binary(
     seed = 5
 )
 
+SSD_crt_null_binary(
+    p_intv = design_matrixN1[106, "eff_size"],
+    p_ctrl = 0.5,
+    n1 = 30,
+    n2 = design_matrixN1[106, "n2"],
+    ndatasets = 15,
+    var_u0 = design_matrixN1[106, "var_u0"],
+    BF_thresh1 = design_matrixN1[106, "BF_threshold"],
+    eta1 = design_matrixN1[106, "eta"],
+    fixed = "n2",
+    b_fract = 2,
+    max = 100,
+    batch_size = 15,
+    seed = design_matrixN1[106, "seed"]
+)
+
 # SSD inf
 # Cluster size
 SSD_crt_inf_binary(p_intv = 0.8, p_ctrl = 0.5, n2 = 40, ndatasets = 100,

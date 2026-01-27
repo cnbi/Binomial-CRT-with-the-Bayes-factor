@@ -307,4 +307,41 @@ filter_underpowered <- function(results_matrix, pair) {
     return(run_again)
 }
 
-# Create plots
+# Check simulation--------------------
+missing_rows <- function(folder_path,
+                         name_pattern = NULL,
+                         check_numbers,
+                         underscore = TRUE) {
+    files_names <- list.files(folder_path)
+    
+    # Filter by name pattern
+    if (!is.null(name_pattern)) {
+        filtered_names <- files_names[grep(name_pattern, files_names)]
+    }
+
+    # Extract the number of row
+    if (underscore) {
+        row_numbers <- sapply(filtered_names, function(names){
+            parts <- unlist(strsplit(names, "_"))
+            number <- parts[length(parts)]
+            
+            # Remove extension
+            number_only <- sub("\\.[^.]+$", "", number)
+            return(number_only)
+        })   
+    } else if (underscore == FALSE) {
+        
+        row_numbers <- sapply(filtered_names, function(names){
+            # Remove extension
+            name_no_ext <- file_path_sans_ext(names)
+            
+            number <- regmatches(name_no_ext, gregexpr("\\d+$", name_no_ext))[[1]]
+            
+            return(number)
+        })
+    }
+    
+
+    difference <- setdiff(check_numbers, row_numbers)
+    print(difference)
+}
