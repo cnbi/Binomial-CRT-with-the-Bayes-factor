@@ -4,70 +4,73 @@
 
 # Run the simulation
 ## Function to run the simulation for hypotheses set 2 -----
-# run_simulation_inf <- function(Row,
-#                                design_matrix,
-#                                ndatasets,
-#                                Max,
-#                                batch_size,
-#                                results_folder) {
-#     message("Starting simulation for row:", Row)
-#     Fixed <- design_matrix[Row, 6]
-#     Fixed <- toupper(Fixed)
-#     
-#     if (Fixed == "N1") {
-#         finding <- "N2"
-#     } else if (Fixed == "N2") {
-#         finding <- "N1"
-#     }
-#     
-#     # Start time
-#     start_time <- Sys.time()
-#     
-#     # Actual simulation
-#     if (Fixed == "N1") {
-#         ssd_results <- SSD_crt_inform(
-#             eff_size = design_matrix[Row, 2],
-#             n1 = design_matrix[Row, 5],
-#             ndatasets = ndatasets,
-#             rho = design_matrix[Row, 1],
-#             BF_thresh = design_matrix[Row, 3],
-#             eta =  design_matrix[Row, 4],
-#             fixed = as.character(design_matrix[Row, 6]),
-#             max = Max,
-#             batch_size = batch_size
-#         )
-#     } else if (Fixed == "N2") {
-#         ssd_results <- SSD_crt_inform(
-#             eff_size = design_matrix[Row, 2],
-#             n2 = design_matrix[Row, 5],
-#             ndatasets = ndatasets,
-#             rho = design_matrix[Row, 1],
-#             BF_thresh = design_matrix[Row, 3],
-#             eta =  design_matrix[Row, 4],
-#             fixed = as.character(design_matrix[Row, 6]),
-#             max = Max,
-#             batch_size = 1000
-#         )
-#     }
-#     
-#     # End time and save results
-#     end_time <- Sys.time()
-#     file_name <- file.path(results_folder,
-#                            paste0("Results", finding, "Row", Row, ".RDS"))
-#     saveRDS(ssd_results, file = file_name)
-#     
-#     # Save running time
-#     running_time <- as.numeric(difftime(end_time, start_time, units = "mins"))
-#     time_name <- file.path(results_folder, paste0("time", finding, "Row", Row, ".RDS"))
-#     saveRDS(running_time, file = time_name)
-#     
-#     message("Finished row: ", Row)
-#     
-#     # Clean up memory
-#     rm(ssd_results)
-#     NULL
-#     gc()
-# }
+run_inf <- function(Row,
+                               design_matrix,
+                               ndatasets,
+                               Max,
+                               batch_size,
+                               results_folder) {
+
+    Fixed <- design_matrix[Row, "fixed"]
+    Fixed <- toupper(Fixed)
+    if (Fixed == "N1") {
+        finding <- "N2"
+    } else if (Fixed == "N2") {
+        finding <- "N1"
+    }
+
+    # Start time
+    start_time <- Sys.time()
+
+    # Actual simulation
+    if (Fixed == "N1") {
+        ssd_results <- SSD_crt_inf_binary(
+            p_intv = design_matrix[Row, "p_int"],
+            p_ctrl = 0.5,
+            n1 = design_matrix[Row, "n1"],
+            n2 = 30,
+            ndatasets = ndatasets,
+            var_u0 = design_matrix[Row, "var_u0"],
+            BF_thresh1 = design_matrix[Row, "BF_threshold"],
+            eta1 = design_matrix[Row, "eta"],
+            fixed = "n1",
+            max = Max,
+            batch_size = batch_size,
+            seed = design_matrix[Row, "seed"]
+        )
+    } else if (Fixed == "N2") {
+        ssd_results <- SSD_crt_inf_binary(
+            p_intv = design_matrix[Row, "p_int"],
+            p_ctrl = 0.5,
+            n1 = 10,
+            n2 = design_matrix[Row, "n2"],
+            ndatasets = ndatasets,
+            var_u0 = design_matrix[Row, "var_u0"],
+            BF_thresh1 = design_matrix[Row, "BF_threshold"],
+            eta1 = design_matrix[Row, "eta"],
+            fixed = "n2",
+            max = Max,
+            batch_size = batch_size,
+            seed = design_matrix[Row, "seed"]
+        )
+    }
+
+    # End time and save results
+    end_time <- Sys.time()
+    file_name <- file.path(results_folder,
+                           paste0("Results", finding, "Row", Row, ".RDS"))
+    saveRDS(ssd_results, file = file_name)
+
+    # Save running time
+    running_time <- as.numeric(difftime(end_time, start_time, units = "mins"))
+    time_name <- file.path(results_folder, paste0("time", finding, "Row", Row, ".RDS"))
+    saveRDS(running_time, file = time_name)
+
+    # Clean up memory
+    rm(ssd_results)
+    NULL
+    gc()
+}
 
 # Function to run the simulation for hypotheses set 1 ----
 run_null <- function(Row,
@@ -159,7 +162,7 @@ reached_condition <- function(results_matrix, pair) {
     return(unpowered)
 }
 
-# Collect results
+# Collect results====================
 collect_results <- function(design_matrix,
                             results_folder,
                             finding,
@@ -182,16 +185,16 @@ collect_results <- function(design_matrix,
         new_matrix <- matrix(NA, ncol = 7, nrow = nrow(design_matrix))
         for (row_design in rows) {
             stored_result <- readRDS(paste0(results_folder, results_name, row_design, ".RDS"))
+            median.BF1u <- median(stored_result[[4]][, "BF.1u"])
             median.BF12 <- median(stored_result[[4]][, "BF.12"])
-            median.BF21 <- median(stored_result[[4]][, "BF.21"])
             mean.PMP1 <- mean(stored_result[[4]][, "PMP.1"])
             mean.PMP2 <- mean(stored_result[[4]][, "PMP.2"])
             eta.BF12 <- stored_result$Proportion.BF12
             n2 <- stored_result$n2
             n1 <- stored_result$n1
-            new_matrix[row_design, ] <- c(median.BF12,
+            new_matrix[row_design, ] <- c(median.BF1u,
                                           mean.PMP1,
-                                          median.BF21,
+                                          median.BF12,
                                           mean.PMP2,
                                           eta.BF12,
                                           n2,
@@ -200,9 +203,9 @@ collect_results <- function(design_matrix,
         new_matrix <- as.data.frame(cbind(design_matrix, new_matrix))
         colnames(new_matrix) <- c(
             names(design_matrix),
-            "median.BF12",
+            "median.BF1u",
             "mean.PMP1",
-            "median.BF21",
+            "median.BF12",
             "mean.PMP2",
             "eta.BF12",
             "n2.final",

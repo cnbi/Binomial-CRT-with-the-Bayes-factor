@@ -6,12 +6,10 @@ print_results <- function(list_results, type_hyp, b) {
     cat(paste("\n", title, "\n", sep = ""))
     row <- paste(rep("=", nchar(title)), collapse = "")
     cat(row, "\n")
-    
+    n_object <- length(list_results)
     if (type_hyp == "eq") {
-        n_object <- length(list_results)
         results_matrix <- matrix(NA, nrow = b, ncol = 5)
         results_matrix[, 1] <- seq(b)
-        
         object_result_b <- list_results[1:b]
         results_matrix[, 2] <- sapply(object_result_b, `[[`, "n1") #n1
         results_matrix[, 3] <- sapply(object_result_b, `[[`, "n2") #n2
