@@ -167,16 +167,16 @@ collect_results <- function(design_matrix,
                             results_folder,
                             finding,
                             pair,
+                            name_results,
                             b = 1, rows) {
     if (missing(rows)) {
         rows <-  seq(nrow(design_matrix))
     }
+    results_name <- name_results
     
     if (finding == "N2") {
-        results_name <- "/FindN2Row"
         file_name <- "final_results_findN2"
     } else if (finding == "N1") {
-        results_name <- "/FindN1Row"
         file_name <- "final_results_findN1"
     }
     
@@ -184,7 +184,7 @@ collect_results <- function(design_matrix,
         # When evaluating set 2 of hypotheses (H1vsH2)
         new_matrix <- matrix(NA, ncol = 7, nrow = nrow(design_matrix))
         for (row_design in rows) {
-            stored_result <- readRDS(paste0(results_folder, results_name, row_design, ".RDS"))
+            stored_result <- readRDS(file.path(results_folder, paste0(results_name, row_design, ".RDS")))
             median.BF1u <- median(stored_result[[4]][, "BF.1u"])
             median.BF12 <- median(stored_result[[4]][, "BF.12"])
             mean.PMP1 <- mean(stored_result[[4]][, "PMP.1"])
@@ -214,10 +214,12 @@ collect_results <- function(design_matrix,
         saveRDS(new_matrix, file = file.path(results_folder, paste0(file_name, "_set2.RDS")))
         
     } else if (pair == 1) {
-        # When evaluating set 1 of hypotheses (H0vsH1)
+        # Hypothesis set 1 (H0vsH1)
         new_matrix <- matrix(NA, ncol = 10, nrow = nrow(design_matrix))
+        
         for (row_design in rows) {
-            stored_result <- readRDS(paste0(results_folder, results_name, row_design, ".RDS"))
+            stored_result <- readRDS(file.path(results_folder, paste0(results_name, row_design, ".RDS")))
+            browser()
             median.BF01 <- median(stored_result[[b]][[6]][, "BF.01"])       # 6: data_H0
             median.BF10 <- median(stored_result[[b]][[7]][, "BF.10"])       # 7: data_H1
             mean.PMP0.H0 <- mean(stored_result[[b]][[6]][, "PMP.0"])        # 6: data_H0
@@ -263,17 +265,19 @@ collect_results <- function(design_matrix,
 
 # Collect times in a matrix ----
 collect_times <- function(design_matrix,
-                          rows = 0,
+                          rows,
                           pair,
                           finding,
+                          times_name,
                           results_folder) {
-    rows <- ifelse(rows = 0, seq(nrow(design_matrix)), rows)
+    if (missing(rows)) {
+        rows <-  seq(nrow(design_matrix))
+    }
     new_matrix <- matrix(NA, nrow = nrow(design_matrix), ncol = 1)
+    results_name <- times_name
     if (finding == "N2") {
-        results_name <- "/timeN2Row"
         file_name <- "final_times_findN2"
     } else if (finding == "N1") {
-        results_name <- "/timeN1Row"
         file_name <- "final_times_findN1"
     }
     # Pair of hypotheses to compare
@@ -284,7 +288,7 @@ collect_times <- function(design_matrix,
     }
     
     for (row_result in rows) {
-        stored_result <- readRDS(paste0(results_folder, results_name, row_result, ".RDS"))
+        stored_result <- readRDS(file.path(results_folder, paste0( results_name, row_result, ".RDS")))
         new_matrix[row_result, ] <- stored_result
     }
     new_matrix <- as.data.frame(cbind(design_matrix, new_matrix))

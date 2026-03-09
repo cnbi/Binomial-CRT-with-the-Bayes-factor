@@ -232,7 +232,8 @@ res_findN2_set2 <- collect_results(
     design_matrix = design_matrixN2,
     results_folder = results_folder,
     finding = "N2",
-    pair = 2
+    pair = 2,
+    name_results = "ResultsN2Row"
 )
 res_time_findN2_set2 <- collect_times(
     design_matrix = design_matrixN2,
