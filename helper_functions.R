@@ -2,9 +2,71 @@
 
 # Model fitting
 fit_glmer <- function(x) {
-    suppressMessages({
-        fitted_model <- glmer(resp ~ intervention + control - 1 + (1 | id), data = x, 
-                              family = binomial)})
+    fitted_model <- tryCatch({
+        suppressMessages(suppressWarnings({
+            glmer(resp ~ intervention + control - 1 + (1 | id), 
+                  data = x, family = binomial)
+        }))
+    }, error = function(e) return(NULL))
+    
+    # 3. Check for Convergence Issues
+    # If the model didn't converge (max|grad| > 0.002), try a tougher optimizer
+    if (!is.null(fitted_model) && !is.null(fitted_model@optinfo$conv$lme4$messages)) {
+        
+        # Check if any message contains "failed to converge"
+        if (any(grepl("failed to converge", fitted_model@optinfo$conv$lme4$messages))) {
+            
+            message("Initial model failed to converge. Re-running with nloptwrap...")
+            
+            fitted_model <- suppressMessages(suppressWarnings({
+                glmer(resp ~ intervention + control - 1 + (1 | id), 
+                      data = x, 
+                      family = binomial,
+                      control = glmerControl(optimizer = "nloptwrap", 
+                                             optCtrl = list(maxfun = 2e5)))
+            }))
+        }
+    }
+    
+    return(fitted_model)
+}
+
+fit_glmer2 <- function(x) {
+    # 1. First attempt: Standard glmer with INTERCEPT
+    # We remove 'control' and '- 1'
+    fitted_model <- tryCatch({
+        suppressMessages(suppressWarnings({
+            glmer(resp ~ intervention + (1 | id), 
+                  data = x, family = binomial)
+        }))
+    }, error = function(e) {
+        # Catch the 'not a positive definite matrix' (dsy2dpo) error
+        if (grepl("dsy2dpo", e$message) || grepl("positive definite", e$message)) {
+            message("Matrix collapsed. Falling back to standard GLM.")
+            return(glm(resp ~ intervention, data = x, family = binomial))
+        }
+        return(NULL)
+    })
+    
+    # 2. Check for Convergence Issues
+    if (!is.null(fitted_model) && 
+        inherits(fitted_model, "merMod") && # Ensure it's not the GLM fallback
+        !is.null(fitted_model@optinfo$conv$lme4$messages)) {
+        
+        if (any(grepl("failed to converge", fitted_model@optinfo$conv$lme4$messages))) {
+            
+            message("Initial model failed to converge. Re-running with nloptwrap...")
+            
+            fitted_model <- suppressMessages(suppressWarnings({
+                glmer(resp ~ intervention + (1 | id), 
+                      data = x, 
+                      family = binomial,
+                      control = glmerControl(optimizer = "nloptwrap", 
+                                             optCtrl = list(maxfun = 2e5)))
+            }))
+        }
+    }
+    
     return(fitted_model)
 }
 
@@ -71,16 +133,12 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
                                        "singularity" = cbind(H0 = data_H0$singularity,
                                                              H1 = data_H1$singularity))
                 b <- b + 1
-                low <- min_sample
-                previous_eta <- 0
-                previous_high <- 0
-                high <- max
-                return(list(low = low,
-                            high = high,
+                return(list(low = min_sample,
+                            high = max,
                             n1 = n1,
                             n2 = n2,
-                            previous_eta = current_eta,
-                            previous_high = previous_high,
+                            previous_eta = 0,
+                            previous_high = 0,
                             b = b,
                             final_SSD = final_SSD
                 ))
@@ -120,16 +178,12 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
                                        "singularity" = cbind(H0 = data_H0$singularity,
                                                              H1 = data_H1$singularity))
                 b <- b + 1
-                low <- min_sample
-                previous_eta <- 0
-                previous_high <- 0
-                high <- max
-                return(list(low = low,
-                            high = high,
+                return(list(low = min_sample,
+                            high = max,
                             n1 = n1,
                             n2 = n2,
-                            previous_eta = current_eta,
-                            previous_high = previous_high,
+                            previous_eta = 0,
+                            previous_high = 0,
                             b = b,
                             final_SSD = final_SSD))
             } else {
@@ -143,7 +197,11 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
                     low <- n1                        #lower bound
                     #Set the higher bound based on the previous high or the maximum
                     if (previous_high > 0 ) {
-                        high <- previous_high
+                        if (high == previous_high){
+                            high <- max
+                        } else {
+                            high <- previous_high
+                        }
                     } else {
                         high <- max
                     }
@@ -189,7 +247,9 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
                     n1 = n1,
                     n2 = n2,
                     b = b,
-                    final_SSD = final_SSD))
+                    final_SSD = final_SSD,
+                    previous_eta = 0,
+                    previous_high = 0))
                 
             } else if (low + n2 == high * 2) {
                 # Adjust higher bound when there is a ceiling effect
@@ -225,7 +285,7 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
             # Eta is close enough to the desired eta or
             # there is no change in eta and the lower bound is close to the middle point or
             # reached the minimum number that meets the Bayesian power condition
-            if ((current_eta - eta < 0.1 && n1 - low == 1) ||
+            if ((current_eta - eta < 0.1 && current_eta - eta > 0 && n1 - low == 1) ||
                 (current_eta == previous_eta && n1 - low == 1) ||
                 (current_eta == previous_eta && low + n1 == high * 2)) {
                 final_SSD[[b]] <- SSD_object
@@ -238,7 +298,9 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
                             n1 = n1,
                             n2 = n2,
                             b = b,
-                            final_SSD = final_SSD))
+                            final_SSD = final_SSD,
+                            previous_eta = 0,
+                            previous_high = 0))
                 
             } else if (low + n1 == high * 2) {
                 # Adjust higher bound when there is a ceiling effect
@@ -250,7 +312,7 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
                             n1 = n1,
                             n2 = n2,
                             b = b,
-                            previous_eta = current_eta))  
+                            previous_eta = current_eta))
             } else {
                 message("Lowering cluster size")
                 # Decreasing the cluster size to find the ultimate sample size
@@ -293,7 +355,6 @@ binary_search_ineq <- function(condition_met, fixed, n1, n2, low, high, max, eta
                 high <- max
                 return(list(low = low,
                             high = high,
-                            n1 = n1,
                             n2 = n2,
                             previous_eta = current_eta,
                             previous_high = previous_high,
@@ -311,7 +372,9 @@ binary_search_ineq <- function(condition_met, fixed, n1, n2, low, high, max, eta
                 if (low + n2 == high * 2) {
                     low <- n2                         #lower bound
                     if (previous_high > 0) {
-                        high <- previous_high
+ 
+                        high <- n2 * 2                       #higher bound
+
                     } else {
                         high <- max                       #higher bound
                     }
@@ -337,7 +400,6 @@ binary_search_ineq <- function(condition_met, fixed, n1, n2, low, high, max, eta
                 return(list(low = low,
                             high = high,
                             n1 = n1,
-                            n2 = n2,
                             previous_eta = current_eta,
                             previous_high = previous_high,
                             final_SSD = final_SSD,
@@ -349,11 +411,11 @@ binary_search_ineq <- function(condition_met, fixed, n1, n2, low, high, max, eta
                 n1 <- round2((low + high) / 2)    #point in the middle
                 
                 # Adjust higher bound when there is a ceiling effect or no increase of power
-                if ((low + n1 == high * 2) | (current_eta == previous_eta)) {
+                if (low + n1 == high * 2) {
                     low <- n1                        #lower bound
                     #Set the higher bound based on the previous high or the maximum
                     if (previous_high > 0 ) {
-                        high <- previous_high
+                        high <- n1 * 2                       #higher bound
                     } else {
                         high <- max
                     }
@@ -362,7 +424,6 @@ binary_search_ineq <- function(condition_met, fixed, n1, n2, low, high, max, eta
                 return(list(low = low,
                             high = high,
                             n1 = n1,
-                            n2 = n2,
                             previous_eta = current_eta))
             }
         }

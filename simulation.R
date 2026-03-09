@@ -11,7 +11,7 @@ library(nanoparquet)
 
 # Functions
 source("ssd_null.R")
-#source("ssd_inf.R")
+source("ssd_inf.R")
 source("helpers_simulation.R")
 
 # common factors --------------
@@ -30,7 +30,7 @@ batch_size <- 500
 
 ## Find the number of clusters ====
 path <- "~/"
-results_folder <- "results_set1"
+results_folder <- "results_set1.2"
 dir.create(results_folder)
 
 ###====== Design matrix ======
@@ -55,7 +55,8 @@ run_null_wrapper <- function(Row) {
 }
 
 ###======== Running the simulation =======
-clusters <- makeForkCluster(detectCores() * 0.75)
+clusters <- makeForkCluster(detectCores() * 0.8)
+clusters <- makeForkCluster(108)
 
 #clusters <- makeCluster(detectCores() * 0.75) #For Windows
 clusterEvalQ(clusters, {
@@ -94,7 +95,7 @@ clusterEvalQ(clusters, {
 
 output <- parallel::parLapply(
     cl = clusters,
-    X = 4:nrow_designN2,
+    X = 1:nrow_designN2,
     fun = run_null_wrapper
 )
 
@@ -140,11 +141,11 @@ run_null_wrapper <- function(Row) {
         b = b_fract
     )
 }
-clusters <- makeForkCluster(detectCores() * 0.75) #For Linux
+clusters <- makeForkCluster(nrow_designN1) #For Linux
 
 output <- parallel::parLapply(
     cl = clusters,
-    X = 1:nrow_designN1,
+    X =  1:nrow_designN1,
     fun = run_null_wrapper
 )
 stopCluster(clusters)
@@ -207,7 +208,8 @@ run_inf_wrapper <- function(Row) {
     )
 }
 
-clusters <- makeForkCluster(detectCores() * 0.75)
+clusters <- makeForkCluster(detectCores() * 0.85)
+clusters <- makeForkCluster(nrow_designN2)
 
 #clusters <- makeCluster(detectCores() * 0.75) #For Windows
 clusterEvalQ(clusters, {
@@ -245,7 +247,7 @@ res_time_findN2_set2 <- collect_times(
 ###=========== Design matrix ==============
 n2 <- c(30, 60, 90)
 design_matrixN1 <- expand.grid(var_u0, eff_size_prob, BF_thres, eta, n2, fixed <- "n2")
-colnames(design_matrixN1) <- c("var_u0", "eff_size", "BF_threshold", "eta", "n2", "fixed")
+colnames(design_matrixN1) <- c("var_u0", "p_int", "BF_threshold", "eta", "n2", "fixed")
 nrow_designN1 <- nrow(design_matrixN1)
 design_matrixN1 <- mutate(design_matrixN1, seed = as.integer(sample(2^32 /
                                                                         2, n())))
@@ -263,13 +265,15 @@ run_inf_wrapper <- function(Row) {
     )
 }
 clusters <- makeForkCluster(detectCores() * 0.75) #For Linux
-
+clusters <- makeForkCluster(2)
 output <- parallel::parLapply(
     cl = clusters,
-    X = 1:nrow_designN1,
-    fun = run_null_wrapper
+    X = c(16, 28),
+    fun = run_inf_wrapper
 )
 stopCluster(clusters)
+
+run_inf_wrapper(1)
 
 ###========== Collect results ============
 res_findN1_set2 <- collect_results(

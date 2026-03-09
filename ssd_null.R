@@ -48,7 +48,7 @@ SSD_crt_null_binary <- function(p_intv, p_ctrl, n1 = 15, n2 = 30, ndatasets = 10
     
     # Binary search start ------------------------------------------------------
     if (fixed == "n1") {
-        min_sample <- 6                     # Minimum number of clusters
+        min_sample <- 10                     # Minimum number of clusters
         low <- min_sample                   #lower bound
     } else if (fixed == "n2") {
         min_sample <- 5                     # Minimum cluster size
