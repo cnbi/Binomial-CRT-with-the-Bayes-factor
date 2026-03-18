@@ -10,6 +10,7 @@ run_inf <- function(Row,
                                Max,
                                batch_size,
                                results_folder) {
+    
 
     Fixed <- design_matrix[Row, "fixed"]
     Fixed <- toupper(Fixed)
@@ -185,10 +186,10 @@ collect_results <- function(design_matrix,
         new_matrix <- matrix(NA, ncol = 7, nrow = nrow(design_matrix))
         for (row_design in rows) {
             stored_result <- readRDS(file.path(results_folder, paste0(results_name, row_design, ".RDS")))
-            median.BF1u <- median(stored_result[[4]][, "BF.1u"])
-            median.BF12 <- median(stored_result[[4]][, "BF.12"])
-            mean.PMP1 <- mean(stored_result[[4]][, "PMP.1"])
-            mean.PMP2 <- mean(stored_result[[4]][, "PMP.2"])
+            median.BF1u <- median(stored_result[[4]][, "BF.1u"], na.rm = TRUE)
+            median.BF12 <- median(stored_result[[4]][, "BF.12"], na.rm = TRUE)
+            mean.PMP1 <- mean(stored_result[[4]][, "PMP.1"], na.rm = TRUE)
+            mean.PMP2 <- mean(stored_result[[4]][, "PMP.2"], na.rm = TRUE)
             eta.BF12 <- stored_result$Proportion.BF12
             n2 <- stored_result$n2
             n1 <- stored_result$n1
@@ -215,38 +216,40 @@ collect_results <- function(design_matrix,
         
     } else if (pair == 1) {
         # Hypothesis set 1 (H0vsH1)
-        new_matrix <- matrix(NA, ncol = 10, nrow = nrow(design_matrix))
-        
+        new_matrix <- matrix(NA, ncol = 11, nrow = nrow(design_matrix)*3)
+        row_res <- 1
         for (row_design in rows) {
-            stored_result <- readRDS(file.path(results_folder, paste0(results_name, row_design, ".RDS")))
-            browser()
-            median.BF01 <- median(stored_result[[b]][[6]][, "BF.01"])       # 6: data_H0
-            median.BF10 <- median(stored_result[[b]][[7]][, "BF.10"])       # 7: data_H1
-            mean.PMP0.H0 <- mean(stored_result[[b]][[6]][, "PMP.0"])        # 6: data_H0
-            mean.PMP1.H0 <- mean(stored_result[[b]][[6]][, "PMP.1"])        # 6: data_H0
-            mean.PMP0.H1 <- mean(stored_result[[b]][[7]][, "PMP.0"])        # 7: data_H1
-            mean.PMP1.H1 <- mean(stored_result[[b]][[7]][, "PMP.1"])        # 7: data_H1
-            n2 <- stored_result[[b]]$n2
-            eta.BF01 <- stored_result[[b]]$Proportion.BF01
-            eta.BF10 <- stored_result[[b]]$Proportion.BF10
-            n1 <- stored_result[[b]]$n1
-            new_matrix[row_design, ] <- c(
-                median.BF01,
-                mean.PMP0.H0,
-                mean.PMP1.H0,
-                median.BF10,
-                mean.PMP0.H1,
-                mean.PMP1.H1,
-                eta.BF01,
-                eta.BF10,
-                n1,
-                n2
-            )
+            for (b_frac in seq(b)) {
+                stored_result <- readRDS(file.path(results_folder, paste0(results_name, row_design, ".RDS")))
+                median.BF01 <- median(stored_result[[b_frac]][[6]][, "BF.01"], na.rm = TRUE)       # 6: data_H0
+                median.BF10 <- median(stored_result[[b_frac]][[7]][, "BF.10"], na.rm = TRUE)       # 7: data_H1
+                mean.PMP0.H0 <- mean(stored_result[[b_frac]][[6]][, "PMP.0"], na.rm = TRUE)        # 6: data_H0
+                mean.PMP1.H0 <- mean(stored_result[[b_frac]][[6]][, "PMP.1"], na.rm = TRUE)        # 6: data_H0
+                mean.PMP0.H1 <- mean(stored_result[[b_frac]][[7]][, "PMP.0"], na.rm = TRUE)        # 7: data_H1
+                mean.PMP1.H1 <- mean(stored_result[[b_frac]][[7]][, "PMP.1"], na.rm = TRUE)        # 7: data_H1
+                n2 <- stored_result[[b_frac]]$n2
+                eta.BF01 <- stored_result[[b_frac]]$Proportion.BF01
+                eta.BF10 <- stored_result[[b_frac]]$Proportion.BF10
+                n1 <- stored_result[[b_frac]]$n1
+                new_matrix[row_res, ] <- c(b_frac,
+                    median.BF01,
+                    mean.PMP0.H0,
+                    mean.PMP1.H0,
+                    median.BF10,
+                    mean.PMP0.H1,
+                    mean.PMP1.H1,
+                    eta.BF01,
+                    eta.BF10,
+                    n1,
+                    n2
+                )
+                row_res <- row_res + 1}
         }
-        
+        design_matrix <- design_matrix %>% slice(rep(1:n(), each = b))
         new_matrix <- as.data.frame(cbind(design_matrix, new_matrix))
         colnames(new_matrix) <- c(
             names(design_matrix),
+            "b",
             "median.BF01",
             "mean.PMP0.H0",
             "mean.PMP1.H0",
