@@ -22,7 +22,7 @@ calc_var_u0 <- function(x){
 }
 icc <- c(0.01, 0.05, 0.075, 0.1)
 var_u0 <- calc_var_u0(icc)
-eff_size_OR <- c(1, 1.5, 2, 3)
+eff_size_OR <- c(1.5, 2, 3)
 logit_beta <- log(eff_size_OR)
 p_ctrl <- c(0.05, 0.1, 0.2, 0.4)
 logit_ctrl <- vector(mode = "numeric")
@@ -72,7 +72,6 @@ run_null_wrapper <- function(Row) {
 
 ###======== Running the simulation =======
 clusters <- makeForkCluster(detectCores() * 0.8)
-clusters <- makeForkCluster(108)
 
 #clusters <- makeCluster(detectCores() * 0.75) #For Windows
 clusterEvalQ(clusters, {
@@ -173,7 +172,7 @@ run_null_wrapper <- function(Row) {
         b = b_fract
     )
 }
-clusters <- makeForkCluster(nrow_designN1) #For Linux
+clusters <- makeForkCluster(detectCores() * 0.8) #For Linux
 
 output <- parallel::parLapply(
     cl = clusters,
@@ -237,13 +236,25 @@ results_colnames <- c("var_u0", "$BF_{thresh}$", "N1", "N2", "$P(BF_{10}>BF_{thr
 res_findN1_set1[which(res_findN1_set1$b == 2 & res_findN1_set1$var_u0 != 0.25 & res_findN1_set1$p_int > 0.7), table_results]
 
 ############## Hypothesis Set 2: Informative vs. informative ###################
-var_u0 <- c(0, 0.25, 0.5, 1)
-eff_size_beta <- c(0.5, 1, 1.5)
-eff_size_prob <- 1 / (1 + exp(-eff_size_beta))
+icc <- c(0.01, 0.05, 0.075, 0.1)
+var_u0 <- calc_var_u0(icc)
+eff_size_OR <- c(1.5, 2, 3)
+logit_beta <- log(eff_size_OR)
+p_ctrl <- c(0.05, 0.1, 0.2, 0.4)
+logit_ctrl <- vector(mode = "numeric")
+for (i in 1:length(p_ctrl)) {
+    logit_ <- log(p_ctrl[i]/(1 - p_ctrl[i]))
+    logit_ctrl <- c(logit_ctrl, logit_)
+}
+p_int <- vector(mode = "numeric")
+eff_sizes <- expand.grid(logit_beta = logit_beta, logit_ctrl = logit_ctrl)
+p_int <- 1/(1 + exp(-(eff_sizes[, 1] + eff_sizes[, 2])))
+p_ctr <-  exp(eff_sizes[, "logit_ctrl"])/(1 + exp(eff_sizes[, "logit_ctrl"]))
+eff_sizes <- cbind(eff_sizes, p_int, p_ctr)
 BF_thres <- c(1, 3, 5)
 eta <- 0.8
 ndatasets <- 5000
-Max <- 1000
+Max <- 500
 batch_size <- 500
 
 
@@ -252,13 +263,11 @@ path <- "~/"
 results_folder <- "results_set2"
 dir.create(results_folder)
 
-eff_sizes_filtered <- eff_sizes[eff_sizes$logit_beta != 0, ]
-
 ###========= Design matrix ===========
 n1 <- c(5, 10, 40)
-design_matrixN2 <- expand.grid(var_u0, eff_size_prob, BF_thres, eta, n1, fixed <- "n1")
+design_matrixN2 <- expand.grid(var_u0, BF_thres, eta, n1, fixed <- "n1")
 colnames(design_matrixN2) <- c("var_u0", "BF_threshold", "eta", "n1", "fixed")
-design_matrixN2 <- cross_join(eff_sizes_filtered, design_matrixN2)
+design_matrixN2 <- cross_join(eff_sizes, design_matrixN2)
 design_matrixN2 <- mutate(design_matrixN2, seed = as.integer(sample(2^32 /
                                                                         2, n())))
 nrow_designN2 <- nrow(design_matrixN2)
@@ -277,7 +286,7 @@ run_inf_wrapper <- function(Row) {
 }
 
 clusters <- makeForkCluster(detectCores() * 0.85)
-clusters <- makeForkCluster(nrow_designN2)
+
 
 #clusters <- makeCluster(detectCores() * 0.75) #For Windows
 clusterEvalQ(clusters, {
@@ -341,9 +350,9 @@ res_findN2_set2[which(res_findN2_set2$p_int < 0.8 & res_findN2_set2$var_u0 != 0.
 
 ###=========== Design matrix ==============
 n2 <- c(30, 60, 90)
-design_matrixN1 <- expand.grid(var_u0, eff_size_prob, BF_thres, eta, n2, fixed <- "n2")
+design_matrixN1 <- expand.grid(var_u0, BF_thres, eta, n2, fixed <- "n2")
 colnames(design_matrixN1) <- c("var_u0", "BF_threshold", "eta", "n2", "fixed")
-design_matrixN1 <- cross_join(eff_sizes_filtered, design_matrixN1)
+design_matrixN1 <- cross_join(eff_sizes, design_matrixN1)
 nrow_designN1 <- nrow(design_matrixN1)
 design_matrixN1 <- mutate(design_matrixN1, seed = as.integer(sample(2^32 /
                                                                         2, n())))
@@ -360,8 +369,8 @@ run_inf_wrapper <- function(Row) {
         results_folder = results_folder
     )
 }
-clusters <- makeForkCluster(detectCores() * 0.75) #For Linux
-clusters <- makeForkCluster(2)
+clusters <- makeForkCluster(detectCores() * 0.8) #For Linux
+
 output <- parallel::parLapply(
     cl = clusters,
     X = c(16, 28),
