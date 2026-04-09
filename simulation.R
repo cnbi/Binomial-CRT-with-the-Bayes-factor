@@ -45,7 +45,7 @@ batch_size <- 500
 ########## Hypothesis Set 1: Equality vs. informative ##########################
 ## Find the number of clusters ====
 path <- "~/"
-results_folder <- "results_set1.2"
+results_folder <- "results_set1v2"
 dir.create(results_folder)
 
 ###====== Design matrix ======
@@ -103,7 +103,8 @@ res_time_findN2_set1 <- collect_times(
     design_matrix = design_matrixN2,
     pair = 1,
     finding = "N2",
-    results_folder = results_folder
+    results_folder = results_folder,
+    times_name = "timeN2Row"
 )
 
 res_findN2_set1 <- rbind(final_results_findN2_set1, final_results_findN2_set1_extra) 
@@ -260,7 +261,7 @@ batch_size <- 500
 
 ##========== Find the number of clusters =========
 path <- "~/"
-results_folder <- "results_set2"
+results_folder <- "results_set2v2"
 dir.create(results_folder)
 
 ###========= Design matrix ===========
@@ -273,6 +274,7 @@ design_matrixN2 <- mutate(design_matrixN2, seed = as.integer(sample(2^32 /
 nrow_designN2 <- nrow(design_matrixN2)
 write_parquet(design_matrixN2, "design_matrix_findN2_set2_v2")
 #design_matrixN2 <- read_parquet("design_matrix_findN2_set2")
+
 ###======= Running the simulation =========
 run_inf_wrapper <- function(Row) {
     run_inf(
@@ -316,7 +318,8 @@ res_time_findN2_set2 <- collect_times(
     design_matrix = design_matrixN2,
     pair = 2,
     finding = "N2",
-    results_folder = results_folder
+    results_folder = results_folder,
+    times_name = "timeN2Row"
 )
 
 res_findN2_set2 <- rbind(final_results_findN2_set2 , final_results_findN2_set2_extra)
