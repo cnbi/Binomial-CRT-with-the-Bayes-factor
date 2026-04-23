@@ -134,7 +134,7 @@ SSD_crt_inf_binary <- function(p_intv,
             }
         print("Bayes factor done")
         
-        #browser()
+        browser()
         #Evaluation of condition -------------------------------------------
         # Proportion
         prop_BF12 <- length(which(results_H1[, "BF.12"] > BF_thresh1)) / ndatasets

@@ -22,7 +22,6 @@ gen_CRT_binarydata <- function(ndatasets = ndatasets,
                                p_ctrl,
                                batch_size,
                                seed) {
-    
     interv_logit <- log(p_intv / (1 - p_intv))
     control_logit <- log(p_ctrl / (1 - p_ctrl))
     # Create variables id  of the cluster and condition
@@ -43,37 +42,40 @@ gen_CRT_binarydata <- function(ndatasets = ndatasets,
     # Tables for results
     output_glmer <- vector(mode = "list", length = ndatasets)
     data_list <- vector(mode = "list", length = ndatasets)
+    
     if (missing(seed)) {
         seeds <- sample(2^32 / 2, ndatasets)
     } else {
         set.seed(seed)
         seeds <- sample(2^32 / 2, ndatasets)
     }
-
+    
     # Data generation ----------------------------------------------------------
+    browser()
+    
     data_list <- lapply(seeds, function(s) {
         set.seed(s)
         u0 <- rnorm(n2, 0, sqrt(var_u0))
         u0 <- rep(u0, each = n1)
         resp_logit <- control_logit * control + interv_logit * intervention + u0
-        prob <- exp(resp_logit) / (1 + exp(resp_logit))
+        #prob <- exp(resp_logit) / (1 + exp(resp_logit))
+        prob <- 1 / (1 + exp(-resp_logit))
         resp <- rbinom(n1 * n2, size = 1, prob = prob)
-        data_matrix <- cbind(id,
-                             u0,
-                             control_logit,
-                             control,
-                             interv_logit,
-                             intervention,
-                             resp_logit,
-                             resp)
-        data_matrix
+        data.frame(
+            id = factor(id),
+            u0 = u0,
+            control_logit = control_logit,
+            control = control,
+            interv_logit = interv_logit,
+            intervention = intervention,
+            resp_logit = resp_logit,
+            resp = resp
+        )
     })
     
-    data_list <- lapply(data_list, as.data.frame) # Necessary to use glmer
     
     # Multilevel analysis --------------------------------------------------------
     # Batches
-    batch_size <- batch_size
     ifelse((ndatasets / batch_size) %% 1 == 0,
            num_batches <- ndatasets / batch_size,
            num_batches <- (ndatasets / batch_size) + 1
@@ -87,6 +89,8 @@ gen_CRT_binarydata <- function(ndatasets = ndatasets,
     }
     marker <- lapply(output_glmer, marker_func) # Mark singularity
     singular_datasets <- Reduce("+", marker) # How many are singular?
+    nonPosDef_marker <- sapply(output_glmer, npd_func) # Are there non-positive definite?
+    nonPosDef_count <- sum(nonPosDef_marker, na.rm = TRUE)
     
     estimates <- lapply(output_glmer, fixef)                 # Means
     cov_intervention <- lapply(output_glmer, varcov, "intervention")      # Covariance
@@ -95,7 +99,7 @@ gen_CRT_binarydata <- function(ndatasets = ndatasets,
     var_u0_data <- unlist(lapply(output_glmer, get_variance))
     total_var_data <- (pi^2) / 3 + var_u0_data
     rho_data <- var_u0_data / total_var_data
-    
+    browser()
     rm(
         id,
         condition,
@@ -115,89 +119,10 @@ gen_CRT_binarydata <- function(ndatasets = ndatasets,
     return(
         output <- list(
             "rho_data" = rho_data,
-            "estimates" = estimates, # These are in logit scale!!
+            "estimates" = estimates,
+            # These are in logit scale!!
             "cov_list" = cov_list,
             "singularity" = singular_datasets
         )
     )
-}
-
-
-
-
-gen_CRT_binarydata2 <- function(ndatasets, n1, n2, var_u0, p_intv, p_ctrl, batch_size, seed) {
-    
-    # --- LOGIC CHANGE 1: Intercept Approach ---
-    # Intercept is the control group logit
-    intercept_logit <- log(p_ctrl / (1 - p_ctrl))
-    # Treatment effect is the DIFFERENCE between intervention and control
-    treatment_effect <- log(p_intv / (1 - p_intv)) - intercept_logit
-    
-    id <- rep(1:n2, each = n1)
-    if (n2 %% 2 == 0) {
-        condition <- rep(c(0, 1), each = n1 * n2 / 2)
-    } else {
-        half <- floor(n2 / 2)
-        condition <- c(rep(0, n1 * half), rep(1, n1 * half), rep(0, n1))
-    }
-    
-    # No more 'control' dummy needed for the formula, just 'condition' (0 or 1)
-    intervention <- condition 
-    
-    output_glmer <- vector(mode = "list", length = ndatasets)
-    if (missing(seed)) {
-        seeds <- sample(2^32 / 2, ndatasets)
-    } else {
-        set.seed(seed)
-        seeds <- sample(2^32 / 2, ndatasets)
-    }
-    
-    # Data generation ----------------------------------------------------------
-    data_list <- lapply(seeds, function(s) {
-        set.seed(s)
-        u0 <- rep(rnorm(n2, 0, sqrt(var_u0)), each = n1)
-        
-        # --- LOGIC CHANGE 2: Linear Predictor ---
-        # Intercept + (Effect * Dummy) + Random Effect
-        resp_logit <- intercept_logit + (treatment_effect * intervention) + u0
-        
-        prob <- exp(resp_logit) / (1 + exp(resp_logit))
-        resp <- rbinom(n1 * n2, size = 1, prob = prob)
-        
-        as.data.frame(cbind(id, intervention, resp))
-    })
-    
-    # Multilevel analysis --------------------------------------------------------
-    # Ensure your fit_glmer function now uses: 
-    # glmer(resp ~ intervention + (1 | id), family = binomial)
-    
-    num_batches <- ceiling(ndatasets / batch_size)
-    
-    for (batch in seq(num_batches)) {
-        start_index <- (batch_size * (batch - 1)) + 1
-        end_index <- min(batch * batch_size, ndatasets)
-        output_glmer[start_index:end_index] <- lapply(data_list[start_index:end_index], fit_glmer)
-    }
-    
-    marker <- lapply(output_glmer2, marker_func)
-    singular_datasets <- Reduce("+", marker)
-    
-    # --- LOGIC CHANGE 3: Extraction ---
-    estimates <- lapply(output_glmer, fixef) 
-    # fixef(model)[1] will be the Intercept (Control logit)
-    # fixef(model)[2] will be the Intervention effect (Difference)
-    
-    # Note: You'll likely need to update your 'varcov' and 'get_variance' 
-    # helper functions to look for "(Intercept)" and "intervention" 
-    # instead of "control" and "intervention".
-    
-    var_u0_data <- unlist(lapply(output_glmer, get_variance))
-    total_var_data <- (pi^2) / 3 + var_u0_data
-    rho_data <- var_u0_data / total_var_data
-    
-    return(list(
-        "rho_data" = rho_data,
-        "estimates" = estimates,
-        "singularity" = singular_datasets
-    ))
 }

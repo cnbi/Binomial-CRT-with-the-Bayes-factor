@@ -9,14 +9,14 @@ fit_glmer <- function(x) {
         }))
     }, error = function(e) return(NULL))
     
-    # 3. Check for Convergence Issues
-    # If the model didn't converge (max|grad| > 0.002), try a tougher optimizer
+    # Check for Convergence Issues
+    # If the model didn't converge (max|grad| > 0.002), try another optimiser
     if (!is.null(fitted_model) && !is.null(fitted_model@optinfo$conv$lme4$messages)) {
         
         # Check if any message contains "failed to converge"
         if (any(grepl("failed to converge", fitted_model@optinfo$conv$lme4$messages))) {
             
-            message("Initial model failed to converge. Re-running with nloptwrap...")
+            message("Initial model failed to converge. Re-running with nloptwrap optimiser")
             
             fitted_model <- suppressMessages(suppressWarnings({
                 glmer(resp ~ intervention + control - 1 + (1 | id), 
@@ -26,6 +26,33 @@ fit_glmer <- function(x) {
                                              optCtrl = list(maxfun = 2e5)))
             }))
         }
+    }
+     # Try another optimiser
+    if (is.null(fitted_model) || !is.null(fitted_model@optinfo$conv$lme4$messages)) {
+        fitted_model <- tryCatch({suppressMessages(suppressWarnings({
+            glmer(resp ~ intervention + control - 1 + (1 | id), 
+                  data = x, 
+                  family = binomial,
+                  control = glmerControl(optimizer = "bobyqa", 
+                                         optCtrl = list(maxfun = 2e5)))
+        }))
+        }, error = function(e) return(NULL))
+    }
+    #browser()
+    # Check for non-positive definite matrix
+    if (!is.null(fitted_model)) {
+        hessian_ <- fitted_model@optinfo$derivs$Hessian
+        if (!is.null(hessian_)) {
+            eigen_val <- eigen(hessian_)$values
+            if (any(eigen_val <= 0)) {
+                attr(fitted_model, "NonPositDef_warning") <- TRUE
+            } else {
+                attr(fitted_model, "NonPositDef_warning") <- FALSE
+            }
+        } else {
+            attr(fitted_model, "NonPositDef_warning") <- isSingular(fitted_model)
+        }
+        
     }
     
     return(fitted_model)
@@ -86,6 +113,11 @@ get_variance <- function(output.glmer) {
 # Marking singular matrices
 marker_func <- function(output.glmer) {
     ifelse(isSingular(output.glmer), marker <- 1, marker <- 0)
+}
+
+#Marking non-positive definite
+npd_func <- function(output.glmer) {
+    attr(output.glmer, "NonPositDef_warning")
 }
 
 # Extract results

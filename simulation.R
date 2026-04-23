@@ -15,8 +15,8 @@ source("ssd_inf.R")
 source("helpers_simulation.R")
 
 # common factors --------------
-calc_var_u0 <- function(x){
-    num <- (pi^2) / 3 * x
+calc_var_u0 <- function(x) {
+    num <- (pi ^ 2) / 3 * x
     v_u0 <- num / (1 - x)
     return(v_u0)
 }
@@ -27,13 +27,13 @@ logit_beta <- log(eff_size_OR)
 p_ctrl <- c(0.05, 0.1, 0.2, 0.4)
 logit_ctrl <- vector(mode = "numeric")
 for (i in 1:length(p_ctrl)) {
-    logit_ <- log(p_ctrl[i]/(1 - p_ctrl[i]))
+    logit_ <- log(p_ctrl[i] / (1 - p_ctrl[i]))
     logit_ctrl <- c(logit_ctrl, logit_)
 }
 p_int <- vector(mode = "numeric")
 eff_sizes <- expand.grid(logit_beta = logit_beta, logit_ctrl = logit_ctrl)
-p_int <- 1/(1 + exp(-(eff_sizes[, 1] + eff_sizes[, 2])))
-p_ctr <-  exp(eff_sizes[, "logit_ctrl"])/(1 + exp(eff_sizes[, "logit_ctrl"]))
+p_int <- 1 / (1 + exp(-(eff_sizes[, 1] + eff_sizes[, 2])))
+p_ctr <-  exp(eff_sizes[, "logit_ctrl"]) / (1 + exp(eff_sizes[, "logit_ctrl"]))
 eff_sizes <- cbind(eff_sizes, p_int, p_ctr)
 BF_thres <- c(1, 3, 5)
 b_fract <- 3
@@ -43,6 +43,8 @@ Max <- 500
 batch_size <- 500
 
 ########## Hypothesis Set 1: Equality vs. informative ##########################
+
+
 ## Find the number of clusters ====
 path <- "~/"
 results_folder <- "results_set1v2"
@@ -53,7 +55,8 @@ n1 <- c(5, 10, 40)
 design_matrixN2 <- expand.grid(var_u0, BF_thres, eta, n1, fixed <- "n1")
 colnames(design_matrixN2) <- c("var_u0", "BF_threshold", "eta", "n1", "fixed")
 design_matrixN2 <- cross_join(eff_sizes, design_matrixN2)
-design_matrixN2 <- mutate(design_matrixN2, seed = as.integer(sample(2^32 /
+design_matrixN2 <- mutate(design_matrixN2, seed = as.integer(sample(2 ^
+                                                                        32 /
                                                                         2, n())))
 nrow_designN2 <- nrow(design_matrixN2)
 write_parquet(design_matrixN2, "design_matrix_findN2_set1_v2")
@@ -71,7 +74,7 @@ run_null_wrapper <- function(Row) {
 }
 
 ###======== Running the simulation =======
-clusters <- makeForkCluster(detectCores() * 0.8)
+clusters <- makeForkCluster(detectCores() * 0.5)
 
 #clusters <- makeCluster(detectCores() * 0.75) #For Windows
 clusterEvalQ(clusters, {
@@ -80,12 +83,11 @@ clusterEvalQ(clusters, {
     library(dplyr)
     library(bain)
 })
-
-output <- parallel::parLapply(
-    cl = clusters,
-    X = 1:nrow_designN2,
-    fun = run_null_wrapper
-)
+missing_findN2_set1 <- missing_rows("results_set1v2", "FindN2Row", 1:432, underscore = F)
+clusters <- makeForkCluster(length(missing))
+output <- parallel::parLapply(cl = clusters,
+                              X = missing_findN2_set1,
+                              fun = run_null_wrapper)
 
 stopCluster(clusters)
 
@@ -107,8 +109,7 @@ res_time_findN2_set1 <- collect_times(
     times_name = "timeN2Row"
 )
 
-res_findN2_set1 <- rbind(final_results_findN2_set1, final_results_findN2_set1_extra) 
-saveRDS(res_findN2_set1, file = "res_findN2_set1.RDS")
+
 ### ===========Plots ====================
 # Bayes Factor H0 vs H1, n1, var_u0, p_int
 ggplot(res_findN2_set1[res_findN2_set1$b == 1, ], aes(y = log(median.BF01), x = n2.final, color = as.factor(n1.final), shape = as.factor(n1.final))) +
@@ -145,11 +146,11 @@ table_results <- c("var_u0", "p_int", "BF_threshold", "n1.final", "n2.final", "e
 round_col <- c("BF_threshold", "n1", "n2.final")
 res_findN2_set1[which(res_findN2_set1$b == 2 ),table_results]
 
-
-
 ##========= Find cluster size ==========
-
-results_folder <- "results_set1.2"
+results_folder <- "results_set1v2"
+if (!dir.exists(results_folder)) {
+    dir.create(results_folder)
+}
 
 ###======= Design matrix ============
 n2 <- c(30, 60, 90)
@@ -244,13 +245,13 @@ logit_beta <- log(eff_size_OR)
 p_ctrl <- c(0.05, 0.1, 0.2, 0.4)
 logit_ctrl <- vector(mode = "numeric")
 for (i in 1:length(p_ctrl)) {
-    logit_ <- log(p_ctrl[i]/(1 - p_ctrl[i]))
+    logit_ <- log(p_ctrl[i] / (1 - p_ctrl[i]))
     logit_ctrl <- c(logit_ctrl, logit_)
 }
 p_int <- vector(mode = "numeric")
 eff_sizes <- expand.grid(logit_beta = logit_beta, logit_ctrl = logit_ctrl)
-p_int <- 1/(1 + exp(-(eff_sizes[, 1] + eff_sizes[, 2])))
-p_ctr <-  exp(eff_sizes[, "logit_ctrl"])/(1 + exp(eff_sizes[, "logit_ctrl"]))
+p_int <- 1 / (1 + exp(-(eff_sizes[, 1] + eff_sizes[, 2])))
+p_ctr <-  exp(eff_sizes[, "logit_ctrl"]) / (1 + exp(eff_sizes[, "logit_ctrl"]))
 eff_sizes <- cbind(eff_sizes, p_int, p_ctr)
 BF_thres <- c(1, 3, 5)
 eta <- 0.8
@@ -269,11 +270,12 @@ n1 <- c(5, 10, 40)
 design_matrixN2 <- expand.grid(var_u0, BF_thres, eta, n1, fixed <- "n1")
 colnames(design_matrixN2) <- c("var_u0", "BF_threshold", "eta", "n1", "fixed")
 design_matrixN2 <- cross_join(eff_sizes, design_matrixN2)
-design_matrixN2 <- mutate(design_matrixN2, seed = as.integer(sample(2^32 /
+design_matrixN2 <- mutate(design_matrixN2, seed = as.integer(sample(2 ^
+                                                                        32 /
                                                                         2, n())))
 nrow_designN2 <- nrow(design_matrixN2)
 write_parquet(design_matrixN2, "design_matrix_findN2_set2_v2")
-#design_matrixN2 <- read_parquet("design_matrix_findN2_set2")
+#design_matrixN2 <- read_parquet("design_matrix_findN2_set2_v2")
 
 ###======= Running the simulation =========
 run_inf_wrapper <- function(Row) {
@@ -287,8 +289,7 @@ run_inf_wrapper <- function(Row) {
     )
 }
 
-clusters <- makeForkCluster(detectCores() * 0.85)
-
+clusters <- makeForkCluster(detectCores() * 0.5)
 
 #clusters <- makeCluster(detectCores() * 0.75) #For Windows
 clusterEvalQ(clusters, {
@@ -297,12 +298,11 @@ clusterEvalQ(clusters, {
     library(dplyr)
     library(bain)
 })
+missing_findN2_set2 <- missing_rows("results_set2v2", "ResultsN2Row", 1:432, underscore = F)
 
-output <- parallel::parLapply(
-    cl = clusters,
-    X = 1:nrow_designN2,
-    fun = run_inf_wrapper
-)
+output <- parallel::parLapply(cl = clusters,
+                              X = missing_findN2_set2,
+                              fun = run_inf_wrapper)
 
 stopCluster(clusters)
 
@@ -322,8 +322,6 @@ res_time_findN2_set2 <- collect_times(
     times_name = "timeN2Row"
 )
 
-res_findN2_set2 <- rbind(final_results_findN2_set2 , final_results_findN2_set2_extra)
-save(res_findN2_set2, file = "res_findN2_set2.RDS")
 
 ### ========== Plots ==================
 # Bayes Factor H0 vs H1, n1, var_u0, p_int
@@ -360,6 +358,7 @@ nrow_designN1 <- nrow(design_matrixN1)
 design_matrixN1 <- mutate(design_matrixN1, seed = as.integer(sample(2^32 /
                                                                         2, n())))
 write_parquet(design_matrixN1, "design_matrix_findN1_set2_v2")
+design_matrixN1 <- read_parquet("design_matrix_findN1_set2_v2")
 
 ###========== Running the simulation ============
 run_inf_wrapper <- function(Row) {
@@ -372,14 +371,16 @@ run_inf_wrapper <- function(Row) {
         results_folder = results_folder
     )
 }
-clusters <- makeForkCluster(detectCores() * 0.8) #For Linux
-
-output <- parallel::parLapply(
-    cl = clusters,
-    X = c(16, 28),
-    fun = run_inf_wrapper
-)
+clusters <- makeForkCluster(detectCores() * 0.5) #For Linux
+missing_findN1_set2 <- missing_rows("results_set2v2",
+                                    name_pattern = "ResultsN1Row",
+                                    check_numbers = 1:nrow_designN1,
+                                    underscore = FALSE)
+output <- parallel::parLapply(cl = clusters, 
+                              X = missing_findN1_set2, 
+                              fun = run_inf_wrapper)
 stopCluster(clusters)
+
 
 run_inf_wrapper(1)
 
