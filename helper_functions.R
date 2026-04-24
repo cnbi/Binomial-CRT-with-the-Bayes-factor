@@ -229,7 +229,7 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
                     low <- n1                        #lower bound
                     #Set the higher bound based on the previous high or the maximum
                     if (previous_high > 0 ) {
-                        if (high == previous_high){
+                        if (high == previous_high) {
                             high <- max
                         } else {
                             high <- previous_high
@@ -301,8 +301,6 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
                 high <- n2                         #higher bound
                 n2 <- round2((low + high) / 2)      #point in the middle
                 if (!n2 %% 2 == 0) n2 <- n2 + 1
-                if (n2 < 30) warning("The number of groups is less than 30.
-                                             This may cause problems in convergence and singularity.")
                 
                 return(list(
                     low = low,
@@ -404,9 +402,7 @@ binary_search_ineq <- function(condition_met, fixed, n1, n2, low, high, max, eta
                 if (low + n2 == high * 2) {
                     low <- n2                         #lower bound
                     if (previous_high > 0) {
- 
                         high <- n2 * 2                       #higher bound
-
                     } else {
                         high <- max                       #higher bound
                     }
@@ -502,8 +498,7 @@ binary_search_ineq <- function(condition_met, fixed, n1, n2, low, high, max, eta
                 high <- n2                         #higher bound
                 n2 <- round2((low + high) / 2)      #point in the middle
                 if (!n2 %% 2 == 0) n2 <- n2 + 1
-                if (n2 < 30) warning("The number of groups is less than 30.
-                                             This may cause problems in convergence and singularity.")
+                
                 
                 return(list(
                     low = low,

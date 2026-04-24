@@ -27,7 +27,7 @@ run_inf <- function(Row,
     if (Fixed == "N1") {
         ssd_results <- SSD_crt_inf_binary(
             p_intv = design_matrix[Row, "p_int"],
-            p_ctrl = 0.5,
+            p_ctrl = design_matrix[Row, "p_ctr"],
             n1 = design_matrix[Row, "n1"],
             n2 = 30,
             ndatasets = ndatasets,
@@ -42,7 +42,7 @@ run_inf <- function(Row,
     } else if (Fixed == "N2") {
         ssd_results <- SSD_crt_inf_binary(
             p_intv = design_matrix[Row, "p_int"],
-            p_ctrl = 0.5,
+            p_ctrl = design_matrix[Row, "p_ctr"],
             n1 = 10,
             n2 = design_matrix[Row, "n2"],
             ndatasets = ndatasets,
@@ -96,37 +96,37 @@ run_null <- function(Row,
     # Actual simulation
     if (Fixed == "N1") {
         ssd_results <- SSD_crt_null_binary(
-            p_intv = design_matrix[Row, 2],
-            p_ctrl = 0.5,
-            n1 = design_matrix[Row, 5],
+            p_intv = design_matrix[Row, "p_int"],
+            p_ctrl = design_matrix[Row, "p_ctr"],
+            n1 = design_matrix[Row, "n1"],
             ndatasets = ndatasets,
-            var_u0 = design_matrix[Row, 1],
-            BF_thresh1 = design_matrix[Row, 3],
-            BF_thresh0 = design_matrix[Row, 3],
-            eta1 = design_matrix[Row, 4],
-            eta0 = design_matrix[Row, 4],
-            fixed = as.character(design_matrix[Row, 6]),
+            var_u0 = design_matrix[Row, "var_u0"],
+            BF_thresh1 = design_matrix[Row, "BF_threshold"],
+            BF_thresh0 = design_matrix[Row, "BF_threshold"],
+            eta1 = design_matrix[Row, "eta"],
+            eta0 = design_matrix[Row, "eta"],
+            fixed = as.character(design_matrix[Row, "fixed"]),
             b_fract = b,
             max = Max,
             batch_size = batch_size,
-            seed = design_matrix[Row, 7]
+            seed = design_matrix[Row, "seed"]
         )
     } else if (Fixed == "N2") {
         ssd_results <- SSD_crt_null_binary(
-            p_intv = design_matrix[Row, 2],
-            p_ctrl = 0.5,
-            n1 = design_matrix[Row, 5],
+            p_intv = design_matrix[Row, "p_int"],
+            p_ctrl = design_matrix[Row, "p_ctr"],
+            n2 = design_matrix[Row, "n2"],
             ndatasets = ndatasets,
-            var_u0 = design_matrix[Row, 1],
-            BF_thresh1 = design_matrix[Row, 3],
-            BF_thresh0 = design_matrix[Row, 3],
-            eta1 = design_matrix[Row, 4],
-            eta0 = design_matrix[Row, 4],
-            fixed = as.character(design_matrix[Row, 6]),
+            var_u0 = design_matrix[Row, "var_u0"],
+            BF_thresh1 = design_matrix[Row, "BF_threshold"],
+            BF_thresh0 = design_matrix[Row, "BF_threshold"],
+            eta1 = design_matrix[Row, "eta"],
+            eta0 = design_matrix[Row, "eta"],
+            fixed = as.character(design_matrix[Row, "fixed"]),
             b_fract = b,
             max = Max,
             batch_size = batch_size,
-            seed = design_matrix[Row, 7]
+            seed = design_matrix[Row, "seed"]
         )
     }
     
@@ -169,16 +169,19 @@ collect_results <- function(design_matrix,
                             finding,
                             pair,
                             name_results,
-                            b = 1, rows) {
+                            b = 1, rows, 
+                            save = TRUE,
+                            file_name) {
     if (missing(rows)) {
         rows <-  seq(nrow(design_matrix))
     }
     results_name <- name_results
-    
-    if (finding == "N2") {
-        file_name <- "final_results_findN2"
-    } else if (finding == "N1") {
-        file_name <- "final_results_findN1"
+    if (missing(file_name)) {
+        if (finding == "N2") {
+            file_name <- "final_results_findN2"
+        } else if (finding == "N1") {
+            file_name <- "final_results_findN1"
+        }
     }
     
     if (pair == 2) {
@@ -261,7 +264,9 @@ collect_results <- function(design_matrix,
             "n1.final",
             "n2.final"
         )
-        saveRDS(new_matrix, file = file.path(results_folder, paste0(file_name, "_set1.RDS")))
+        if (save == TRUE) {
+            saveRDS(new_matrix, file = file.path(results_folder, paste0(file_name, "_set1.RDS")))
+        }
     }
     return(new_matrix)
 }
@@ -272,17 +277,21 @@ collect_times <- function(design_matrix,
                           pair,
                           finding,
                           times_name,
-                          results_folder) {
+                          results_folder,
+                          file_name) {
     if (missing(rows)) {
         rows <-  seq(nrow(design_matrix))
     }
     new_matrix <- matrix(NA, nrow = nrow(design_matrix), ncol = 1)
     results_name <- times_name
-    if (finding == "N2") {
-        file_name <- "final_times_findN2"
-    } else if (finding == "N1") {
-        file_name <- "final_times_findN1"
+    if (missing(file_name)) {
+        if (finding == "N2") {
+            file_name <- "final_times_findN2"
+        } else if (finding == "N1") {
+            file_name <- "final_times_findN1"
+        }
     }
+    
     # Pair of hypotheses to compare
     if (pair == 1) {
         type <- "_set1.RDS"

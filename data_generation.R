@@ -51,7 +51,7 @@ gen_CRT_binarydata <- function(ndatasets = ndatasets,
     }
     
     # Data generation ----------------------------------------------------------
-    browser()
+    #browser()
     
     data_list <- lapply(seeds, function(s) {
         set.seed(s)
@@ -99,7 +99,7 @@ gen_CRT_binarydata <- function(ndatasets = ndatasets,
     var_u0_data <- unlist(lapply(output_glmer, get_variance))
     total_var_data <- (pi^2) / 3 + var_u0_data
     rho_data <- var_u0_data / total_var_data
-    browser()
+    #browser()
     rm(
         id,
         condition,

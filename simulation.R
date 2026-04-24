@@ -289,6 +289,7 @@ run_inf_wrapper <- function(Row) {
     )
 }
 
+# run_inf_wrapper(38)
 clusters <- makeForkCluster(detectCores() * 0.5)
 
 #clusters <- makeCluster(detectCores() * 0.75) #For Windows
@@ -382,7 +383,7 @@ output <- parallel::parLapply(cl = clusters,
 stopCluster(clusters)
 
 
-run_inf_wrapper(1)
+# run_inf_wrapper(84)
 
 ###========== Collect results ============
 res_findN1_set2 <- collect_results(

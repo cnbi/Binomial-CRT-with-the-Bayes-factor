@@ -57,10 +57,9 @@ SSD_crt_inf_binary <- function(p_intv,
     
     # Binary search start ------------------------------------------------------
     if (fixed == "n1") {
-        min_sample <- 10                     # Minimum number of clusters
+        min_sample <- 8                     # Minimum number of clusters
         low <- min_sample                   #lower bound
     } else if (fixed == "n2") {
-        min_sample <- 5                     # Minimum cluster size
         low <- min_sample                   #lower bound
     }
     high <- max                    #higher bound
@@ -134,7 +133,7 @@ SSD_crt_inf_binary <- function(p_intv,
             }
         print("Bayes factor done")
         
-        browser()
+        #browser()
         #Evaluation of condition -------------------------------------------
         # Proportion
         prop_BF12 <- length(which(results_H1[, "BF.12"] > BF_thresh1)) / ndatasets
@@ -181,5 +180,6 @@ SSD_crt_inf_binary <- function(p_intv,
             "At least one of the fitted models is singular. For more information about singularity see help('isSingular').
                                The number of models that are singular can be found in the output object."
         )
+    if (n2 < 30) warning("The number of clusters is less than 30. This may cause problems in convergence and singularity.")
     invisible(final_SSD)
 }
