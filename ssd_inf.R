@@ -11,7 +11,7 @@ SSD_crt_inf_binary <- function(p_intv,
                                fixed = "n2",
                                max = 1000,
                                batch_size = 100,
-                               seed) {
+                               seed, fit_glm = FALSE) {
     # Libraries ----
     library(lme4)
     library(dplyr)
@@ -57,9 +57,10 @@ SSD_crt_inf_binary <- function(p_intv,
     
     # Binary search start ------------------------------------------------------
     if (fixed == "n1") {
-        min_sample <- 8                     # Minimum number of clusters
+        min_sample <- 10                     # Minimum number of clusters
         low <- min_sample                   #lower bound
     } else if (fixed == "n2") {
+        min_sample <- 5
         low <- min_sample                   #lower bound
     }
     high <- max                    #higher bound
@@ -78,9 +79,42 @@ SSD_crt_inf_binary <- function(p_intv,
         # If H1 is true
         data_H1 <- do.call(
             gen_CRT_binarydata,
-            list(ndatasets, n1, n2, var_u0, p_intv, p_ctrl, batch_size = batch_size, seed)
+            list(ndatasets = ndatasets, 
+                 n1 = n1, n2 = n2, 
+                 var_u0 = var_u0, 
+                 p_intv = p_intv, p_ctrl = p_ctrl, 
+                 batch_size = batch_size, seed = seed)
         )
         print("Data generation done")
+        if (isTRUE(data_H1$constant)) { # increase sample when the response is constant
+            if (fixed == "n1") {
+                if (n2 == max) {
+                    return(list(
+                        status  = "constant_at_max",
+                        fixed   = fixed,
+                        n1      = n1,
+                        n2      = n2,
+                        message = "Constant response persisted until maximum sample size was reached."
+                    ))
+                }
+                low <- n2
+                n2  <- round2((low + high) / 2)
+                if (!n2 %% 2 == 0) n2 <- n2 + 1
+            } else {
+                if (n1 == max) {
+                    return(list(
+                        status  = "constant_at_max",
+                        fixed   = fixed,
+                        n1      = n1,
+                        n2      = n2,
+                        message = "Constant response persisted until maximum sample size was reached."
+                    ))
+                }
+                low <- n1
+                n1  <- round2((low + high) / 2)
+            }
+            next
+        }
         
         #Approximated adjusted fractional Bayes factors------------------------------
         n_eff_H1 <- ((n1 * n2) / (1 + (n1 - 1) * data_H1$rho_data)) / 2
@@ -94,10 +128,6 @@ SSD_crt_inf_binary <- function(p_intv,
             Sigma = data_H1$cov_list,
             group_parameters = 1
         )
-        
-        # Fix problem with bain
-        
-        
         
         # Results ---------------------------------------------------------------------
         #browser()

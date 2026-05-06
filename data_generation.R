@@ -21,9 +21,23 @@ gen_CRT_binarydata <- function(ndatasets = ndatasets,
                                p_intv,
                                p_ctrl,
                                batch_size,
-                               seed) {
+                               seed,
+                               use_glm = FALSE) {
     interv_logit <- log(p_intv / (1 - p_intv))
     control_logit <- log(p_ctrl / (1 - p_ctrl))
+    
+    if (missing(seed)) {
+        seeds <- sample(2^32 / 2, ndatasets)
+    } else {
+        set.seed(seed)
+        seeds <- sample(2^32 / 2, ndatasets)
+    }
+    
+    # Tables for results
+    output_glmer <- vector(mode = "list", length = ndatasets)
+    data_list <- vector(mode = "list", length = ndatasets)
+    
+    # Data generation ----------------------------------------------------------
     # Create variables id  of the cluster and condition
     id <- rep(1:n2, each = n1)
     if (n2 %% 2 == 0) {
@@ -39,18 +53,6 @@ gen_CRT_binarydata <- function(ndatasets = ndatasets,
     control <- 1 - intervention
     marker <- 0
     
-    # Tables for results
-    output_glmer <- vector(mode = "list", length = ndatasets)
-    data_list <- vector(mode = "list", length = ndatasets)
-    
-    if (missing(seed)) {
-        seeds <- sample(2^32 / 2, ndatasets)
-    } else {
-        set.seed(seed)
-        seeds <- sample(2^32 / 2, ndatasets)
-    }
-    
-    # Data generation ----------------------------------------------------------
     #browser()
     
     data_list <- lapply(seeds, function(s) {
@@ -73,6 +75,13 @@ gen_CRT_binarydata <- function(ndatasets = ndatasets,
         )
     })
     
+    constant_resp <- sapply(data_list, function(data_fr) length(unique(data_fr$resp)) < 2)
+    if (any(constant_resp)) {
+        return(list(constant = TRUE,
+                    n1 = n1,
+                    n2 = n2))
+    }
+    
     
     # Multilevel analysis --------------------------------------------------------
     # Batches
@@ -85,14 +94,19 @@ gen_CRT_binarydata <- function(ndatasets = ndatasets,
         start_index <- (batch_size * (batch - 1)) + 1
         end_index <- min(batch * batch_size, ndatasets)
         #Multilevel fitting
-        output_glmer[start_index:end_index] <- lapply(data_list[start_index:end_index], fit_glmer)
+        output_glmer[start_index:end_index] <- lapply(data_list[start_index:end_index], fit_glmer2, use_glm)
     }
+    
+    # Handle the NULLs, singularities, and non-positive definite matrices
     marker <- lapply(output_glmer, marker_func) # Mark singularity
     singular_datasets <- Reduce("+", marker) # How many are singular?
-    nonPosDef_marker <- sapply(output_glmer, npd_func) # Are there non-positive definite?
-    nonPosDef_count <- sum(nonPosDef_marker, na.rm = TRUE)
+    # nonPosDef_marker <- sapply(output_glmer, npd_func) # Are there non-positive definite?
+    # nonPosDef_count <- sum(nonPosDef_marker, na.rm = TRUE)
     
-    estimates <- lapply(output_glmer, fixef)                 # Means
+    estimates <- lapply(output_glmer, function(q){
+        if (is.null(q)) return(c(intervention = NA, control = NA))
+        fixef(q)
+    })                 # Means
     cov_intervention <- lapply(output_glmer, varcov, "intervention")      # Covariance
     cov_control <- lapply(output_glmer, varcov, "control")
     cov_list <- Map(list, "intervention" = cov_intervention, "control" = cov_control)

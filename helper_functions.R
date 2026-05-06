@@ -58,53 +58,85 @@ fit_glmer <- function(x) {
     return(fitted_model)
 }
 
-fit_glmer2 <- function(x) {
-    # 1. First attempt: Standard glmer with INTERCEPT
-    # We remove 'control' and '- 1'
-    fitted_model <- tryCatch({
-        suppressMessages(suppressWarnings({
-            glmer(resp ~ intervention + (1 | id), 
-                  data = x, family = binomial)
-        }))
-    }, error = function(e) {
-        # Catch the 'not a positive definite matrix' (dsy2dpo) error
-        if (grepl("dsy2dpo", e$message) || grepl("positive definite", e$message)) {
-            message("Matrix collapsed. Falling back to standard GLM.")
-            return(glm(resp ~ intervention, data = x, family = binomial))
-        }
-        return(NULL)
-    })
+fit_glmer2 <- function(x, use_glm) {
+    fitted_model <-  suppressMessages(suppressWarnings({
+        glmer(resp ~ intervention + control - 1 + (1 | id), 
+              data = x, family = binomial)
+    }))
     
-    # 2. Check for Convergence Issues
-    if (!is.null(fitted_model) && 
-        inherits(fitted_model, "merMod") && # Ensure it's not the GLM fallback
-        !is.null(fitted_model@optinfo$conv$lme4$messages)) {
-        
-        if (any(grepl("failed to converge", fitted_model@optinfo$conv$lme4$messages))) {
-            
-            message("Initial model failed to converge. Re-running with nloptwrap...")
-            
-            fitted_model <- suppressMessages(suppressWarnings({
-                glmer(resp ~ intervention + (1 | id), 
-                      data = x, 
-                      family = binomial,
-                      control = glmerControl(optimizer = "nloptwrap", 
-                                             optCtrl = list(maxfun = 2e5)))
-            }))
-        }
+    # Retry with nlotpwrap optimiser if singular
+    if (!is.null(fitted_model) && isSingular(fitted_model)) {
+        fitted_model <- tryCatch(suppressMessages(suppressWarnings(
+            glmer(resp ~ intervention + control - 1 + (1 | id), 
+                  data = x, 
+                  family = binomial,
+                  control = glmerControl(optimizer = "nloptwrap", 
+                                         optCtrl = list(maxfun = 2e5)))
+        )),
+        error = function(e) NULL)
     }
     
+    # Use GLM instead when everything fails
+    # if (is.null(fitted_model) || isSingular(fitted_model)) {
+    #     if (use_glm) {
+    #         fitted_model <- tryCatch({
+    #             glm(resp ~ intervention + control - 1, data = x, family = binomial) },
+    #             error = function(e) {message("GLM also failed: ", e$message)
+    #                 return(NULL)
+    #             })
+    #     } else if (is.null(fitted_model)) {
+    #         message("The glmer optimiser failed.")
+    #     } else {
+    #         message("Singular fit is detected (var_u0 ≈ 0). Consider use_glm = TRUE.")
+    #     }
+    # }
+    
+    # Check for non-positive definite matrix
+    if (!is.null(fitted_model)) {
+        attr(fitted_model, "use_glm") <- use_glm
+        # Check Hessian
+        if (!use_glm) {
+            nonpos <- tryCatch({
+                hessian_ <- fitted_model@optinfo$derivs$Hessian
+                if (!is.null(hessian_)) {
+                    eigen_val <- eigen(hessian_)$values
+                    if (any(eigen_val <= 0)) {
+                        attr(fitted_model, "NonPositDef_warning") <- TRUE
+                    }
+                } else {
+                    isSingular(fitted_model)
+                }
+            }, error = function(e) TRUE)
+            
+            attr(fitted_model, "NonPositDef_warning") <- nonpos
+        }
+    }
     return(fitted_model)
+}
+
+
+# glm was used instead
+glm_used_func <- function(output.model) {
+    if (is.null(output.model)) return(NA)
+    isTRUE(attr(output.model, "glm_used"))
 }
 
 # Obtain the variance covariance matrix for fixed effects
 varcov <- function(output.glmer, name) {
-    varcov <- matrix(vcov(output.glmer)[name, name], nrow = 1, ncol = 1)
-    return(varcov)
+    if (is.null(output.glmer)) return(matrix(NA_real_, 1, 1))
+    results <- tryCatch(
+        suppressWarnings(vcov(output.glmer)[name, name]),
+        error = function(e) {
+            message("vcov() failed (non-positive definite matrix): returning NA")
+            NA_real_
+        }
+    )
+    return(matrix(results, nrow = 1, ncol = 1))
 }
 
 # Obtain variance for random intercept
 get_variance <- function(output.glmer) {
+    if (is.null(output.glmer) || glm_used_func(output.glmer)) return(NA)
     variance <- as.data.frame(VarCorr(output.glmer))
     value <- variance[, 4]
     return(value)
@@ -112,12 +144,26 @@ get_variance <- function(output.glmer) {
 
 # Marking singular matrices
 marker_func <- function(output.glmer) {
+    if (is.null(output.glmer)) return(NA)
+    if (glm_used_func(output.glmer)) return(NA)
     ifelse(isSingular(output.glmer), marker <- 1, marker <- 0)
 }
 
 #Marking non-positive definite
 npd_func <- function(output.glmer) {
+    if (is.null(output.glmer)) return(NA)
     attr(output.glmer, "NonPositDef_warning")
+}
+
+# Check data before bain
+check_data <- function(index, data_) {
+    estimates <- data_$estimates[[index]]
+    covar_var <- data_$cov_list[[index]]
+    rho <- data_$rho_data
+    
+    !is.null(estimates) && !any(is.na(estimates)) && !any(is.infinite(estimates)) &&
+        !is.null(covar_var) && !any(is.na(unlist(covar_var))) && !any(is.infinite(unlist(covar_var))) &&
+        !is.null(rho) && !any(is.na(rho)) && !any(is.infinite(rho))
 }
 
 # Extract results
@@ -266,8 +312,8 @@ binary_search_eq <- function(condition_met, fixed, n1, n2, low, high, max, eta,
         if (fixed == "n1") {
             # Eta is close enough to the desired eta or
             # there is no change in eta and the lower bound is close to the middle point
-            if ((current_eta - eta < 0.1 && n2 - low == 2) ||
-                (previous_eta == current_eta && n2 - low == 2)) {
+            if ((current_eta - eta < 0.1 & n2 - low == 2) | 
+                (previous_eta == current_eta & n2 - low == 2)) {
                 final_SSD[[b]] <- SSD_object
                 b <- b + 1
                 low <- min_sample

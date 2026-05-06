@@ -8,6 +8,7 @@ library(pbapply)
 library(parallel)
 library(tidyverse)
 library(nanoparquet)
+library(tools)
 
 # Functions
 source("ssd_null.R")
@@ -30,7 +31,7 @@ for (i in 1:length(p_ctrl)) {
     logit_ <- log(p_ctrl[i] / (1 - p_ctrl[i]))
     logit_ctrl <- c(logit_ctrl, logit_)
 }
-p_int <- vector(mode = "numeric")
+
 eff_sizes <- expand.grid(logit_beta = logit_beta, logit_ctrl = logit_ctrl)
 p_int <- 1 / (1 + exp(-(eff_sizes[, 1] + eff_sizes[, 2])))
 p_ctr <-  exp(eff_sizes[, "logit_ctrl"]) / (1 + exp(eff_sizes[, "logit_ctrl"]))
@@ -61,6 +62,9 @@ design_matrixN2 <- mutate(design_matrixN2, seed = as.integer(sample(2 ^
 nrow_designN2 <- nrow(design_matrixN2)
 write_parquet(design_matrixN2, "design_matrix_findN2_set1_v2")
 
+# design_matrixN2 <- read_parquet("design_matrix_findN2_set1_v2")
+# nrow_designN2 <- nrow(design_matrixN2)
+
 run_null_wrapper <- function(Row) {
     run_null(
         Row = Row,
@@ -83,8 +87,7 @@ clusterEvalQ(clusters, {
     library(dplyr)
     library(bain)
 })
-missing_findN2_set1 <- missing_rows("results_set1v2", "FindN2Row", 1:432, underscore = F)
-clusters <- makeForkCluster(length(missing))
+
 output <- parallel::parLapply(cl = clusters,
                               X = missing_findN2_set1,
                               fun = run_null_wrapper)
@@ -92,7 +95,7 @@ output <- parallel::parLapply(cl = clusters,
 stopCluster(clusters)
 
 ###======= Collect results ========
-results_folder <- "results_set1.2/results_set1.3"
+results_folder <- "results_set1v2"
 #pair = 1 refering to the pair of hypotheses H0 vs H1
 res_findN2_set1 <- collect_results(
     design_matrix = design_matrixN2,
@@ -162,6 +165,10 @@ design_matrixN1 <- mutate(design_matrixN1, seed = as.integer(sample(2^32 /
 nrow_designN1 <- nrow(design_matrixN1)
 write_parquet(design_matrixN1, "design_matrix_findN1_set1_v2")
 
+
+# design_matrixN1 <- read_parquet("design_matrix_findN1_set1_v2")
+# nrow_designN1 <- nrow(design_matrixN2)
+
 ###========= Running the simulation =========
 run_null_wrapper <- function(Row) {
     run_null(
@@ -174,7 +181,7 @@ run_null_wrapper <- function(Row) {
         b = b_fract
     )
 }
-clusters <- makeForkCluster(detectCores() * 0.8) #For Linux
+clusters <- makeForkCluster(detectCores() * 0.5) #For Linux
 
 output <- parallel::parLapply(
     cl = clusters,
@@ -263,7 +270,10 @@ batch_size <- 500
 ##========== Find the number of clusters =========
 path <- "~/"
 results_folder <- "results_set2v2"
-dir.create(results_folder)
+if (!dir.exists(results_folder)) {
+    dir.create(results_folder)
+}
+
 
 ###========= Design matrix ===========
 n1 <- c(5, 10, 40)
@@ -275,6 +285,7 @@ design_matrixN2 <- mutate(design_matrixN2, seed = as.integer(sample(2 ^
                                                                         2, n())))
 nrow_designN2 <- nrow(design_matrixN2)
 write_parquet(design_matrixN2, "design_matrix_findN2_set2_v2")
+
 #design_matrixN2 <- read_parquet("design_matrix_findN2_set2_v2")
 
 ###======= Running the simulation =========
@@ -289,7 +300,6 @@ run_inf_wrapper <- function(Row) {
     )
 }
 
-# run_inf_wrapper(38)
 clusters <- makeForkCluster(detectCores() * 0.5)
 
 #clusters <- makeCluster(detectCores() * 0.75) #For Windows
@@ -359,7 +369,8 @@ nrow_designN1 <- nrow(design_matrixN1)
 design_matrixN1 <- mutate(design_matrixN1, seed = as.integer(sample(2^32 /
                                                                         2, n())))
 write_parquet(design_matrixN1, "design_matrix_findN1_set2_v2")
-design_matrixN1 <- read_parquet("design_matrix_findN1_set2_v2")
+
+# design_matrixN1 <- read_parquet("design_matrix_findN1_set2_v2")
 
 ###========== Running the simulation ============
 run_inf_wrapper <- function(Row) {
@@ -382,8 +393,6 @@ output <- parallel::parLapply(cl = clusters,
                               fun = run_inf_wrapper)
 stopCluster(clusters)
 
-
-# run_inf_wrapper(84)
 
 ###========== Collect results ============
 res_findN1_set2 <- collect_results(
