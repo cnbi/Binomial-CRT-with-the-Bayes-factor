@@ -112,10 +112,15 @@ res_time_findN2_set1 <- collect_times(
     times_name = "timeN2Row"
 )
 
+res_findN2_set1 <- readRDS("~/GitHub/Binary-CRT/results_set1v2/final_results_findN2_set1.RDS")
 
 ### ===========Plots ====================
 # Bayes Factor H0 vs H1, n1, var_u0, p_int
-ggplot(res_findN2_set1[res_findN2_set1$b == 1, ], aes(y = log(median.BF01), x = n2.final, color = as.factor(n1.final), shape = as.factor(n1.final))) +
+res_findN2_set1 <- res_findN2_set1 |> mutate(across(c("p_int", "var_u0"), \(x) round(x, 3)))
+
+filtered_data <- res_findN2_set1 %>% filter( p_int %in% c(0.667, 0.429, 0.25, 0.136))
+    
+ggplot(filtered_data[filtered_data$b == 1,], aes(y = log(median.BF01), x = n2.final, color = as.factor(n1.final), shape = as.factor(n1.final))) +
     geom_point() + geom_line() +
     scale_color_brewer(palette = "Dark2") + scale_fill_brewer(palette = "Dark2") +
     facet_grid(rows = vars(var_u0), cols = vars(p_int)) +
@@ -123,7 +128,7 @@ ggplot(res_findN2_set1[res_findN2_set1$b == 1, ], aes(y = log(median.BF01), x = 
     xlab("Number of clusters") + ylab("Bayes Factor") + theme(legend.position = "bottom")
 
 # n2, n1, BF_thresh, p_int, var_u0
-ggplot(res_findN2_set1[res_findN2_set1$b == 1, ], 
+ggplot(filtered_data[filtered_data$b == 3,], 
        aes(x = n1.final, y = n2.final, color = as.factor(BF_threshold), 
            shape = as.factor(BF_threshold))) + geom_point() + geom_line() +
     scale_color_brewer(palette = "Dark2") + scale_fill_brewer(palette = "Dark2") +
@@ -131,10 +136,10 @@ ggplot(res_findN2_set1[res_findN2_set1$b == 1, ],
     labs(title = "Determining Number of Clusters in Function of Cluster Sizes, Bayes Factor Thresholds, \nresponse rate,and between-cluster variance",  
          color = "Bayes Factor \nThresholds", shape = "Bayes Factor \nThresholds") +
     xlab("Cluster sizes") + ylab("Number of clusters") + theme(legend.position = "bottom") +
-    ylim(c(0, 100))
+    ylim(c(0, 500))
 
 # n2, n1, BF_thresh, p_int, var_u0 including b
-ggplot(res_findN2_set1, 
+ggplot(filtered_data, 
        aes(x = n1.final, y = n2.final, color = as.factor(BF_threshold), 
            shape = as.factor(b))) + geom_point() + geom_line() +
     scale_color_brewer(palette = "Dark2") + scale_fill_brewer(palette = "Dark2") +
@@ -146,8 +151,7 @@ ggplot(res_findN2_set1,
 # Table
 library(xtable)
 table_results <- c("var_u0", "p_int", "BF_threshold", "n1.final", "n2.final", "eta.BF10", "eta.BF01")
-round_col <- c("BF_threshold", "n1", "n2.final")
-res_findN2_set1[which(res_findN2_set1$b == 2 ),table_results]
+xtable(filtered_data[which(filtered_data$b == 2 & !(filtered_data$var_u0 == 0.366)),table_results])
 
 ##========= Find cluster size ==========
 results_folder <- "results_set1v2"
@@ -210,6 +214,9 @@ res_time_findN1_set1 <- collect_times(
 )
 
 ##================ Plots =================
+
+filtered_data <- res_findN1_set1[res_findN1_set1$b == 1, ]
+
 
 # Bayes Factor H0 vs H1, n1, var_u0, p_int
 ggplot(res_findN1_set1[res_findN1_set1$b == 1, ], aes(y = log(median.BF01), x = n1.final, color = as.factor(n2), shape = as.factor(n2))) +
